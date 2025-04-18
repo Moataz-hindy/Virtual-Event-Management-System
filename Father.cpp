@@ -2,111 +2,10 @@
 #include <fstream>
 #include <unordered_set>
 #include <string>
+#include <set>
+#include <sstream>
 
 using namespace std;
-
-void login() {
-    string username, password;
-    bool loginSuccess = false;
-
-    cout << "Enter username: ";
-    cin >> username;
-    cout << "Enter password: ";
-    cin >> password;
-
-    ifstream users("loginDataBase.txt");
-    if (!users.is_open()) {
-        cout << "Error: Unable to open database file!" << endl;
-        return;
-    }
-
-    string fileUsername, filePassword;
-    while (users >> fileUsername >> filePassword) {
-        if (fileUsername == username && filePassword == password) {
-            loginSuccess = true;
-            break;
-        }
-    }
-
-    users.close();
-
-    if (loginSuccess) {
-        cout << "Welcome, " << username << "!" << endl;
-    } else {
-        cout << "Invalid username or password!" << endl;
-        login(); // optionally loop back for retry
-    }
-}
-
-void signup(unordered_set<string>& usernames) {
-    string username, password;
-
-    cout << "Enter username: ";
-    cin >> username;
-
-    if (usernames.count(username)) {
-        cout << "Username is taken!" << endl;
-        signup(usernames);
-        return;
-    }
-
-    cout << "Enter password: ";
-    cin >> password;
-
-    ofstream users("loginDataBase.txt", ios::app);
-    if (!users.is_open()) {
-        cout << "Error: Unable to open database file!" << endl;
-        return;
-    }
-
-    users << username << " " << password << "\n";
-    users.close();
-    usernames.insert(username);
-
-    cout << "Signup successful!" << endl;
-}
-
-void start_menu(unordered_set<string>& usernames) {
-    int choice;
-    cout << "\nPlease choose one of these options:" << endl;
-    cout << "1) Login" << endl;
-    cout << "2) Signup" << endl;
-    cout << "3) Exit" << endl;
-    cout << "Enter a number: ";
-    cin >> choice;
-
-    switch (choice) {
-        case 1:
-            login();
-            break;
-        case 2:
-            signup(usernames);
-            start_menu(usernames);
-            break;
-        case 3:
-            exit(0);
-        default:
-            cout << "Invalid choice, please choose 1, 2 or 3." << endl;
-            start_menu(usernames);
-    }
-}
-
-void setup() {
-    unordered_set<string> usernames;
-    string userName, dummy;
-    ifstream users("loginDataBase.txt");
-
-    while (users >> userName >> dummy) {
-        usernames.insert(userName);
-    }
-    users.close();
-
-    cout << "=========================" << endl;
-    cout << "=========WELCOME=========" << endl;
-    cout << "=========================" << endl;
-
-    start_menu(usernames);
-}
 
 class Event {
 private:
@@ -114,6 +13,11 @@ private:
     int capacity;
 
 public:
+    // Used to store Events in set in order of Dates
+    bool operator<(const Event& other) const {
+        return (date == other.date) ? (time < other.time) : (date < other.date);
+    }
+
     Event() {} // default constructor
     Event(string n, string desc, string d, string t, string p, int c, string typ)
         : event_name(n), description(desc), date(d), time(t), platform(p), capacity(c), type(typ) {}
@@ -175,6 +79,231 @@ public:
     int getRating() const { return rating; }
     string getReview() const { return review; }
 };
+
+void main_menu(string const& logged_user);
+void schedule_event(string const& logged_user);
+void setup();
+
+multiset<Event> loadEventsForUser(const string& username) {
+    ifstream file("events.txt");
+    multiset<Event> userEvents;
+
+    string line;
+    while (getline(file, line)) {
+        stringstream ss(line);
+        string fileUser, name, desc, date, time, platform, capacityStr, type;
+
+        getline(ss, fileUser, '|');
+        if (fileUser != username) continue;
+
+        getline(ss, name, '|');
+        getline(ss, desc, '|');
+        getline(ss, date, '|');
+        getline(ss, time, '|');
+        getline(ss, platform, '|');
+        getline(ss, capacityStr, '|');
+        getline(ss, type, '|');
+
+        int capacity = stoi(capacityStr);
+        Event e(name, desc, date, time, platform, capacity, type);
+        userEvents.insert(e);
+    }
+
+    return userEvents;
+}
+
+template <typename T>
+void printMultiset(const multiset<T>& mset) {
+    cout << "Multiset elements:\n";
+    for (const T& value : mset) {
+        value.displayDetails();  // Calls the displayDetails() method
+        cout << "-----------------------------" << endl;  // Optional separator
+    }
+    cout << endl;
+}
+
+string login() {
+    string username, password;
+
+    while (true) {
+        cout << "Enter username: ";
+        cin >> username;
+        cout << "Enter password: ";
+        cin >> password;
+
+        ifstream users("loginDataBase.txt");
+        if (!users.is_open()) {
+            cout << "Error: Unable to open database file!" << endl;
+            exit;
+            return ""; // Use empty string instead of nullptr for string return type
+        }
+
+        string fileUsername, filePassword;
+        bool loginSuccess = false;
+
+        while (users >> fileUsername >> filePassword) {
+            if (fileUsername == username && filePassword == password) {
+                loginSuccess = true;
+                break;
+            }
+        }
+
+        users.close();
+
+        if (loginSuccess) {
+            cout << "Welcome, " << username << "!" << endl;
+            return username;
+        } else {
+            cout << "Invalid username or password! Please try again." << endl;
+        }
+    }
+}
+
+void signup(unordered_set<string>& usernames) {
+    string username, password;
+
+    cout << "Enter username: ";
+    cin >> username;
+
+    if (usernames.count(username)) {
+        cout << "Username is taken!" << endl;
+        signup(usernames);
+        return;
+    }
+
+    cout << "Enter password: ";
+    cin >> password;
+
+    ofstream users("loginDataBase.txt", ios::app);
+    if (!users.is_open()) {
+        cout << "Error: Unable to open database file!" << endl;
+        return;
+    }
+
+    users << username << " " << password << "\n";
+    users.close();
+    usernames.insert(username);
+
+    cout << "Signup successful!" << endl;
+}
+
+void start_menu(unordered_set<string>& usernames) {
+    int choice;
+    cout << "\nPlease choose one of these options:" << endl;
+    cout << "1) Login" << endl;
+    cout << "2) Signup" << endl;
+    cout << "3) Exit" << endl;
+    cout << "Enter a number: ";
+    cin >> choice;
+
+    switch (choice) {
+        case 1:
+            main_menu(login());
+            break;
+        case 2:
+            signup(usernames);
+            start_menu(usernames);
+            break;
+        case 3:
+            exit(0);
+        default:
+            cout << "Invalid choice, please choose 1, 2 or 3." << endl;
+            start_menu(usernames);
+    }
+}
+
+void main_menu(string const& logged_user) {
+    while (true) {
+        int choice;
+        cout << "\nPlease choose one of these options:" << endl;
+        cout << "1) Schedule Meeting" << endl;
+        cout << "2) Open Calendar for user" << endl;
+        cout << "3) Exit" << endl;
+        cout << "Enter a number: ";
+        cin >> choice;
+
+        switch (choice) {
+            case 1:
+                schedule_event(logged_user);
+            break;
+            case 2:
+                printMultiset(loadEventsForUser(logged_user));
+            break;
+            case 3:
+                setup();
+                exit(0);
+            default:
+                cout << "Invalid choice, please choose 1, 2 or 3." << endl;
+        }
+    }
+}
+
+Event createEvent_Factory() {
+    string name, desc, platform, date, time, type;
+    int capacity;
+
+    cin.ignore();
+    cout << "Enter event name: ";
+    getline(cin, name);
+    cout << "Enter description: ";
+    getline(cin, desc);
+    cout << "Enter platform: ";
+    getline(cin, platform);
+    cout << "Enter date (YYYY-MM-DD): ";
+    getline(cin, date);
+    cout << "Enter time (HH:MM): ";
+    getline(cin, time);
+    cout << "Enter type: ";
+    getline(cin, type);
+    cout << "Enter capacity: ";
+    cin >> capacity;
+
+    return Event(name, desc, date, time, platform, capacity, type);
+}
+
+void saveEventToFile(const Event& e, const string& username) {
+    ofstream file("events.txt", ios::app); // append mode
+    if (!file.is_open()) {
+        cout << "Error opening events file!" << endl;
+        return;
+    }
+
+    file << username << "|"
+         << e.getName() << "|"
+         << e.getDescription() << "|"
+         << e.getDate() << "|"
+         << e.getTime() << "|"
+         << e.getPlatform() << "|"
+         << e.getCapacity() << "|"
+         << e.getType() << "\n";
+
+    file.close();
+}
+
+void schedule_event(string const& logged_user) {
+    static multiset<Event> eventList;
+    Event const e = createEvent_Factory();
+    eventList.insert(e);
+
+    saveEventToFile(e,logged_user);
+}
+
+void setup() {
+    unordered_set<string> usernames;
+    string userName, dummy;
+    ifstream users("loginDataBase.txt");
+
+    while (users >> userName >> dummy) {
+        usernames.insert(userName);
+    }
+    users.close();
+
+    cout << "=========================" << endl;
+    cout << "=========WELCOME=========" << endl;
+    cout << "=========================" << endl;
+
+    start_menu(usernames);
+}
 
 int main() {
     setup();
