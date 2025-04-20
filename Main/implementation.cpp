@@ -152,8 +152,9 @@ Event* Webinar::create_event(){
     getline(cin, time);
     cout << "Enter capacity: ";
     cin >> capacity;
+    cin.ignore();
     cout << "Enter Host: ";
-    getline(cin, time);
+    getline(cin, host);
 
     Webinar* webinar = new Webinar(name, desc, platform, date, time, capacity, host);
     return webinar;
@@ -241,8 +242,9 @@ Event* Workshop::create_event(){
     getline(cin, time);
     cout << "Enter capacity: ";
     cin >> capacity;
+    cin.ignore();
     cout << "Enter Instructor: ";
-    getline(cin, time);
+    getline(cin, instructor);
 
     Workshop* workshop = new Workshop(name, desc, platform, date, time, capacity, instructor);
     return workshop;
@@ -469,9 +471,11 @@ void main_menu(string const& logged_user, unordered_set<string>& usernames) {
     switch (choice) {
     case 1:
         events_menu(logged_user, usernames);
+        main_menu(logged_user, usernames);
     break;
     case 2:
         printMultiset(loadEventsForUser(logged_user));
+        main_menu(logged_user, usernames);
     break;
     case 3:
         signout(usernames);
@@ -498,17 +502,14 @@ void events_menu(string const& logged_user, unordered_set<string>& usernames){
     case 1:
         event = new Conference();
         schedule_event(logged_user, event);
-        main_menu(logged_user, usernames);
     break;
     case 2:
         event = new Webinar();
         schedule_event(logged_user, event);
-        main_menu(logged_user, usernames);
     break;
     case 3:
         event = new Workshop();
         schedule_event(logged_user, event);
-        main_menu(logged_user, usernames);
     break;
     case 4:
         main_menu(logged_user, usernames);
