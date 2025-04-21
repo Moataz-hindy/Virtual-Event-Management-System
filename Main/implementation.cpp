@@ -88,33 +88,26 @@ void Conference::saveToFile(const string& username){
         << this->getDuration() << "\n";
 }
 
-    Event* Conference::loadFromFile(const string& username){
-    ifstream file("events.txt");
+Event* Conference::loadFromFile(const string& line){
 
-    Conference* conference;
+    stringstream ss(line);
+    string fileUser, name, desc, date, time, platform, capacityStr, durationStr, type;
+    getline(ss, type, '|');
+    getline(ss, fileUser, '|');
 
-    string line;
-    while (getline(file, line)) {
-        stringstream ss(line);
-        string fileUser, name, desc, date, time, platform, capacityStr, durationStr, type;
+    getline(ss, name, '|');
+    getline(ss, desc, '|');
+    getline(ss, date, '|');
+    getline(ss, time, '|');
+    getline(ss, platform, '|');
+    getline(ss, capacityStr, '|');
+    getline(ss, durationStr, '|');
 
-        getline(ss, type, '|');
-        getline(ss, fileUser, '|');
-        if (fileUser != username) continue;
+    int capacity = stoi(capacityStr);
+    int duration = stoi(durationStr);
 
-        getline(ss, name, '|');
-        getline(ss, desc, '|');
-        getline(ss, date, '|');
-        getline(ss, time, '|');
-        getline(ss, platform, '|');
-        getline(ss, capacityStr, '|');
-        getline(ss, durationStr, '|');
+    Conference* conference = new Conference(name, desc, platform, date, time, capacity, duration);
 
-        int capacity = stoi(capacityStr);
-        int duration = stoi(durationStr);
-
-        conference = new Conference(name, desc, platform, date, time, capacity, duration);
-    }
     return conference;
 }
 ////////////////////////////////////////////////////
@@ -177,33 +170,27 @@ void Webinar::saveToFile(const string& username){
         << this->getPlatform() << "|"
         << this->getCapacity() << "|"
         << this->getHost() << "\n";
+    file.close();
 }
 
-    Event* Webinar::loadFromFile(const string& username){
-    ifstream file("events.txt");
-
-    Webinar* webinar;
-    string line;
-    while (getline(file, line)) {
-        stringstream ss(line);
-        string fileUser, name, desc, date, time, platform, capacityStr, host, type;
-        getline(ss, type, '|');
-        getline(ss, fileUser, '|');
-        if (fileUser != username) continue;
-
-        getline(ss, name, '|');
-        getline(ss, desc, '|');
-        getline(ss, date, '|');
-        getline(ss, time, '|');
-        getline(ss, platform, '|');
-        getline(ss, capacityStr, '|');
-        getline(ss, host, '|');
-
-        int capacity = stoi(capacityStr);
+Event* Webinar::loadFromFile(const string& line){
+    stringstream ss(line);
+    string fileUser, name, desc, date, time, platform, capacityStr, host, type;
+    getline(ss, type, '|');
+    getline(ss, fileUser, '|');
     
-        webinar = new Webinar(name, desc, platform, date, time, capacity, host);
+    getline(ss, name, '|');
+    getline(ss, desc, '|');
+    getline(ss, date, '|');
+    getline(ss, time, '|');
+    getline(ss, platform, '|');
+    getline(ss, capacityStr, '|');
+    getline(ss, host, '|');
 
-    }
+    int capacity = stoi(capacityStr);
+    
+    Webinar* webinar = new Webinar(name, desc, platform, date, time, capacity, host);
+
     return webinar;
 }
 
@@ -267,32 +254,27 @@ void Workshop::saveToFile(const string& username){
         << this->getPlatform() << "|"
         << this->getCapacity() << "|"
         << this->getInstructor() << "\n";
+    file.close();
 }
 
-    Event* Workshop::loadFromFile(const string& username){
-    ifstream file("events.txt");
-    Workshop* workshop;
-    string line;
-    while (getline(file, line)) {
-        stringstream ss(line);
-        string fileUser, name, desc, date, time, platform, capacityStr, instructor, type;
-        getline(ss, type, '|');
-        getline(ss, fileUser, '|');
-        if (fileUser != username) continue;
+Event* Workshop::loadFromFile(const string& line){
+    
+    stringstream ss(line);
+    string fileUser, name, desc, date, time, platform, capacityStr, instructor, type;
+    getline(ss, type, '|');
+    getline(ss, fileUser, '|');
 
-        getline(ss, name, '|');
-        getline(ss, desc, '|');
-        getline(ss, date, '|');
-        getline(ss, time, '|');
-        getline(ss, platform, '|');
-        getline(ss, capacityStr, '|');
-        getline(ss, instructor, '|');
+    getline(ss, name, '|');
+    getline(ss, desc, '|');
+    getline(ss, date, '|');
+    getline(ss, time, '|');
+    getline(ss, platform, '|');
+    getline(ss, capacityStr, '|');
+    getline(ss, instructor, '|');
 
-        int capacity = stoi(capacityStr);
+    int capacity = stoi(capacityStr);
         
-        
-        workshop = new Workshop(name, desc, platform, date, time, capacity, instructor);
-    }
+    Workshop* workshop = new Workshop(name, desc, platform, date, time, capacity, instructor);
     return workshop;
 }
 
@@ -333,21 +315,26 @@ multiset<Event*> loadEventsForUser(const string& username) {
     ifstream file("events.txt");
     multiset<Event*> userEvents;
 
-    string line;
-    while (std::getline(file, line)) {
-        size_t pos = line.find('|');
-        string type = line.substr(0, pos);
-        if(type == "Conference"){
+    string line, type, fileUser;
+    while (getline(file, line)) {
+        istringstream iss(line);
+        getline(iss, type, '|'); // Read first field
+        getline(iss, fileUser, '|');
+        string restOfLine;
+        getline(iss, restOfLine); // Read *everything* left (even if it has more '|')
+        if(type == "Conference" && fileUser == username){
             Conference* conference = new Conference();
-            userEvents.insert(conference->loadFromFile(username));
-        }else if(type == "Webinar"){
+            userEvents.insert(conference->loadFromFile(line));
+        }else if(type == "Webinar" && fileUser == username){
             Webinar* webinar = new Webinar();
-            userEvents.insert(webinar->loadFromFile(username));
-        }else if(type == "Workshop"){
+            userEvents.insert(webinar->loadFromFile(line));
+        }else if(type == "Workshop" && fileUser == username){
             Workshop* workshop = new Workshop();
-            userEvents.insert(workshop->loadFromFile(username));
+            userEvents.insert(workshop->loadFromFile(line));
         }
     }
+
+    file.close();
 
     return userEvents;
 }
