@@ -5,15 +5,32 @@
 #include <string>
 #include <set>
 #include <sstream>
-
+#include <limits>
 
 using namespace std;
 
-////////////////////////////////////////////////////
 
+//////////////////////////User//////////////////////////
+User::User(){}
+User::User(string u, string p): username(u), password(p){}
+
+void User::setUsername(string u) { username = u; }
+string User::getUsername() const { return username; }
+
+void User::setPassword(string p) { password = p; }
+string User::getPassword() const { return password; }
+
+    // Used to store Users in set in alphabetical order.
+bool User::operator<(const User& other) const {
+        return username < other.username;
+    }
+
+
+///////////////////////////Event/////////////////////////
 Event::Event(){}
 Event::Event(string n, string desc, string p, string d, string t, int c)
     : event_name(n), description(desc), platform(p), date(d), time(t), capacity(c) {}
+
 
 
 //Implemtation of getter functions
@@ -27,9 +44,7 @@ int Event::getCapacity() const { return capacity; }
 bool Event::operator<(const Event& other) const {
     return (date == other.date) ? (time < other.time) : (date < other.date);
 }
-
-////////////////////////////////////////////////////
-
+////////////////////////Conference////////////////////////////
 Conference::Conference(){}
 Conference::Conference(string n, string desc, string p, string d, string t, int c, int dur)
     : Event(n, desc, p, d, t, c), duration(dur) {}
@@ -110,8 +125,7 @@ Event* Conference::loadFromFile(const string& line){
 
     return conference;
 }
-////////////////////////////////////////////////////
-
+/////////////////////////Webinar///////////////////////////
 Webinar::Webinar(){}
 Webinar::Webinar(string n, string desc, string p, string d, string t, int c, string h)
     : Event(n, desc, p, d, t, c), host(h) {}
@@ -178,7 +192,7 @@ Event* Webinar::loadFromFile(const string& line){
     string fileUser, name, desc, date, time, platform, capacityStr, host, type;
     getline(ss, type, '|');
     getline(ss, fileUser, '|');
-    
+
     getline(ss, name, '|');
     getline(ss, desc, '|');
     getline(ss, date, '|');
@@ -188,14 +202,12 @@ Event* Webinar::loadFromFile(const string& line){
     getline(ss, host, '|');
 
     int capacity = stoi(capacityStr);
-    
+
     Webinar* webinar = new Webinar(name, desc, platform, date, time, capacity, host);
 
     return webinar;
 }
-
-////////////////////////////////////////////////////
-
+////////////////////////////Workshop////////////////////////
 Workshop::Workshop(){}
 Workshop::Workshop(string n, string desc, string p, string d, string t, int c, string i)
     : Event(n, desc, p, d, t, c), instructor(i) {}
@@ -237,7 +249,6 @@ Event* Workshop::create_event(){
     return workshop;
 }
 
-
 void Workshop::saveToFile(const string& username){
     ofstream file("events.txt", ios::app); // append mode
     if (!file.is_open()) {
@@ -258,7 +269,7 @@ void Workshop::saveToFile(const string& username){
 }
 
 Event* Workshop::loadFromFile(const string& line){
-    
+
     stringstream ss(line);
     string fileUser, name, desc, date, time, platform, capacityStr, instructor, type;
     getline(ss, type, '|');
@@ -273,29 +284,18 @@ Event* Workshop::loadFromFile(const string& line){
     getline(ss, instructor, '|');
 
     int capacity = stoi(capacityStr);
-        
+
     Workshop* workshop = new Workshop(name, desc, platform, date, time, capacity, instructor);
     return workshop;
 }
-
-////////////////////////////////////////////////////
-
+////////////////////////Attendee////////////////////////////
 Attendee::Attendee() {}
-Attendee::Attendee(string n, string e, string a) : name(n), email(e), affiliation(a) {}
+Attendee::Attendee(string u, string p, string a) : User(u,p), affiliation(a) {}
 
-void Attendee::setEmail(string e) { email = e; }
-string Attendee::getEmail() const { return email; }
-
-void Attendee::setName(string n) { name = n; }
-string Attendee::getName() const { return name; }
 
 void Attendee::setAffiliation(string a) { affiliation = a; }
 string Attendee::getAffiliation() const { return affiliation; }
-
-////////////////////////////////////////////////////
-
-
-
+////////////////////////Feedback////////////////////////////
 Feedback::Feedback() {}
 Feedback::Feedback(string n, int ra, string re)
     : name(n), rating(ra), review(re) {
@@ -303,50 +303,52 @@ Feedback::Feedback(string n, int ra, string re)
     if (rating > 5) rating = 5;
 }
 
+
 void Feedback::display() const {
     cout << name << " rated " << rating << " out of 5" << endl;
     cout << "Review: " << review << endl;
 }
 int Feedback::getRating() const { return rating; }
 string Feedback::getReview() const { return review; }
-
 ////////////////////////////////////////////////////
-multiset<Event*> loadEventsForUser(const string& username) {
+set<Event*> loadEventsForUser(const string& username) {
     ifstream file("events.txt");
-    multiset<Event*> userEvents;
+    set<Event*> userEvents;
 
     string line, type, fileUser;
     while (getline(file, line)) {
         istringstream iss(line);
-        getline(iss, type, '|'); // Read first field
-        getline(iss, fileUser, '|');
-        string restOfLine;
-        getline(iss, restOfLine); // Read *everything* left (even if it has more '|')
-        if(type == "Conference" && fileUser == username){
-            Conference* conference = new Conference();
-            userEvents.insert(conference->loadFromFile(line));
-        }else if(type == "Webinar" && fileUser == username){
-            Webinar* webinar = new Webinar();
-            userEvents.insert(webinar->loadFromFile(line));
-        }else if(type == "Workshop" && fileUser == username){
-            Workshop* workshop = new Workshop();
-            userEvents.insert(workshop->loadFromFile(line));
+        getline(iss, type, '|'); // Read event type
+        getline(iss, fileUser, '|'); // Read username
+        if (fileUser == username) {
+            if (type == "Conference") {
+                userEvents.insert(Conference::loadFromFile(line));
+            } else if (type == "Webinar") {
+                userEvents.insert(Webinar::loadFromFile(line));
+            } else if (type == "Workshop") {
+                userEvents.insert(Workshop::loadFromFile(line));
+            }
         }
     }
 
     file.close();
-
     return userEvents;
 }
 
+User User_Factory(string const& username, string const& password) {
+    return User(username, password);
+}
 
-template <typename T> void printMultiset(const multiset<T>& mset) {
+template <typename T> void printMultiset(const set<T>& mset) {
     cout << "Meetings:\n" << "-----------------------------" << endl;
     for (const T& value : mset) {
         value->displayDetails();  // Calls the displayDetails() method
         cout << "-----------------------------" << endl;  // Optional separator
     }
     cout << endl;
+    for (Event* e : mset) {
+        delete e;
+    }
 }
 
 string login() {
@@ -413,117 +415,134 @@ void signup(unordered_set<string>& usernames) {
     cout << "Signup successful!" << endl;
 }
 
-
-void signout(unordered_set<string>& usernames){
-    //TODO: finish signout()
-    start_menu(usernames);
-}
-
-
 void start_menu(unordered_set<string>& usernames) {
     int choice;
-    cout << "\nPlease choose one of these options:" << endl;
-    cout << "1) Login" << endl;
-    cout << "2) Signup" << endl;
-    cout << "3) Exit" << endl;
-    cout << "Enter a number: ";
-    cin >> choice;
+    while (true){
+        cout << "\nPlease choose one of these options:" << endl;
+        cout << "1) Login" << endl;
+        cout << "2) Signup" << endl;
+        cout << "3) Exit" << endl;
+        cout << "Enter a number: ";
+        cin >> choice;
 
-    switch (choice) {
-        case 1:
-            main_menu(login(), usernames);
-            break;
-        case 2:
-            signup(usernames);
-            start_menu(usernames);
-            break;
-        case 3:
-            exit(0);
-        default:
-            cout << "Invalid choice, please choose 1, 2 or 3." << endl;
-            start_menu(usernames);
+        if (cin.fail()) {
+            cin.clear(); // clear the error flag
+            cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard bad input
+            cout << "Invalid input. Please enter a number." << endl;
+            continue;
+        }
+
+        switch (choice) {
+            case 1:
+                main_menu(login(), usernames);
+                return;
+                break;
+            case 2:
+                signup(usernames);
+                break;
+            case 3:
+                exit(0);
+            default:
+                cout << "Invalid choice, please choose 1, 2 or 3." << endl;
+        }
     }
 }
 
 void main_menu(string const& logged_user, unordered_set<string>& usernames) {
     int choice;
-    cout << "\nPlease choose one of these options:" << endl;
-    cout << "1) Schedule Meeting" << endl;
-    cout << "2) Open Calendar for user" << endl;
-    cout << "3) Sign out" << endl;
-    cout << "4) Exit" << endl;
-    cout << "Enter a number: ";
-    cin >> choice;
+    while (true) {
+        cout << "\nPlease choose one of these options:" << endl;
+        cout << "1) Schedule Meeting" << endl;
+        cout << "2) Open Calendar for user" << endl;
+        cout << "3) Sign out" << endl;
+        cout << "Enter a number: ";
+        cin >> choice;
 
-    switch (choice) {
-    case 1:
-        events_menu(logged_user, usernames);
-        main_menu(logged_user, usernames);
-    break;
-    case 2:
-        printMultiset(loadEventsForUser(logged_user));
-        main_menu(logged_user, usernames);
-    break;
-    case 3:
-        signout(usernames);
-        break;
-    case 4:
-        exit(0);
-    default:
-        cout << "Invalid choice, please choose 1, 2 or 3." << endl;
+        if (cin.fail()) {
+            cin.clear(); // clear the error flag
+            cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard bad input
+            cout << "Invalid input. Please enter a number." << endl;
+            continue;
+        }
+
+        switch (choice) {
+        case 1:
+            events_menu(logged_user, usernames);
+            break; // Continue the loop to let the user choose again
+        case 2:
+            printMultiset(loadEventsForUser(logged_user));
+            break; // Continue the loop to let the user choose again
+        case 3:
+            start_menu(usernames);  // Sign out and return to start menu
+            return; // Exit the loop and the main_menu function
+        default:
+            cout << "Invalid choice, please choose 1, 2, or 3." << endl;
+        }
     }
 }
 
-void events_menu(string const& logged_user, unordered_set<string>& usernames){
+void events_menu(string const& logged_user, unordered_set<string>& usernames) {
     Event* event;
     int choice;
-    cout << "\nPlease choose the type of the event:" << endl;
-    cout << "1) Conference" << endl;
-    cout << "2) Webinar" << endl;
-    cout << "3) Workshop" << endl;
-    cout << "4) Exit" << endl;
-    cout << "Enter a number: ";
-    cin >> choice;
 
-    switch (choice) {
-    case 1:
-        event = new Conference();
-        schedule_event(logged_user, event);
-    break;
-    case 2:
-        event = new Webinar();
-        schedule_event(logged_user, event);
-    break;
-    case 3:
-        event = new Workshop();
-        schedule_event(logged_user, event);
-    break;
-    case 4:
-        main_menu(logged_user, usernames);
-    break;
-    default:
-        cout << "Invalid choice, please choose 1, 2 or 3." << endl;
+    while (true) {  // Loop to keep asking for valid input
+        cout << "\nPlease choose the type of the event:" << endl;
+        cout << "1) Conference" << endl;
+        cout << "2) Webinar" << endl;
+        cout << "3) Workshop" << endl;
+        cout << "4) Exit" << endl;
+        cout << "Enter a number: ";
+        cin >> choice;
+
+        // Handle invalid input
+        if (cin.fail()) {
+            cin.clear(); // clear the error flag
+            cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard bad input
+            cout << "Invalid input. Please enter a number." << endl;
+            continue;  // Repeat the loop
+        }
+
+        Event* tempEvent = nullptr;
+        switch (choice) {
+        case 1:
+            tempEvent = new Conference();
+            schedule_event(logged_user, tempEvent);
+            break;
+        case 2:
+            tempEvent = new Webinar();
+            schedule_event(logged_user, tempEvent);
+            break;
+        case 3:
+            tempEvent = new Workshop();
+            schedule_event(logged_user, tempEvent);
+            break;
+        case 4:
+            main_menu(logged_user, usernames);
+            return;  // Exit the function and go back to the main menu
+        default:
+            cout << "Invalid choice, please choose 1, 2, 3, or 4." << endl;
+        }
     }
 }
 
 void schedule_event(string const& logged_user, Event* event) {
+    Event* newEvent = event->create_event();
+    delete event;  // Delete the temporary object we created in events_menu()
 
-    event = event->create_event();
+    static set<Event*> eventList;
+    eventList.insert(newEvent);
 
-    static multiset<Event*> eventList;
-    eventList.insert(event);
-
-    event->saveToFile(logged_user);
+    newEvent->saveToFile(logged_user);
 }
-
-
 
 void setup() {
     unordered_set<string> usernames;
-    string userName, dummy;
+    set<User> Users;
+    string userName, password;
     ifstream users("loginDataBase.txt");
 
-    while (users >> userName >> dummy) {
+    while (users >> userName >> password) {
+        Users.insert(User_Factory(userName, password));
         usernames.insert(userName);
     }
     users.close();
@@ -533,9 +552,4 @@ void setup() {
     cout << "=========================" << endl;
 
     start_menu(usernames);
-}
-
-int main() {
-    setup();
-    return 0;
 }
