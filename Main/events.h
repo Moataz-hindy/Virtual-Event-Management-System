@@ -4,27 +4,25 @@
 #include <set>
 #include <unordered_set>
 
-
 using namespace std;
 
-
-class Event{
-    private:
+class Event {
+private:
     string event_name, description, platform, date, time;
     int capacity;
 
-    public:
-    //Constructors
+public:
+    // Constructors
     Event();
     Event(string n, string desc, string d, string t, string p, int c);
+    virtual ~Event() = default;  // Virtual destructor
 
-    //Member functions
+    // Member functions
     virtual void displayDetails() const = 0;
     virtual Event* create_event() = 0;
     virtual void saveToFile(const string& username) = 0;
-    virtual Event* loadFromFile(const string& username) = 0;
 
-    //Getter methods
+    // Getter methods
     string getName() const;
     string getDescription() const;
     string getDate() const;
@@ -37,68 +35,81 @@ class Event{
     bool operator<(const Event& other) const;
 };
 
-class Conference : public Event{
-    private:
+class Conference : public Event {
+private:
     int duration;
-    public:
+public:
     Conference();
     Conference(string n, string desc, string d, string t, string p, int c, int dur);
+    ~Conference() override = default;
 
-    void displayDetails() const;
-    Event* create_event();
-    void saveToFile(const string& username);
-    Event* loadFromFile(const string& username);
+    void displayDetails() const override;
+    Event* create_event() override;
+    void saveToFile(const string& username) override;
+    static Event* loadFromFile(const string& username);
 
-    string getType() const;
+    string getType() const override;
     int getDuration() const;
 };
 
-class Webinar : public Event{
-    private:
+class Webinar : public Event {
+private:
     string host;
-    public:
+public:
     Webinar();
     Webinar(string n, string desc, string d, string t, string p, int c, string h);
+    ~Webinar() override = default;
 
-    void displayDetails() const;
-    Event* create_event();
-    void saveToFile(const string& username);
-    Event* loadFromFile(const string& username);
+    void displayDetails() const override;
+    Event* create_event() override;
+    void saveToFile(const string& username) override;
+    static Event* loadFromFile(const string& username);
 
-    string getType() const;
+    string getType() const override;
     string getHost() const;
 };
 
-class Workshop : public Event{
-    private:
+class Workshop : public Event {
+private:
     string instructor;
-    public:
+public:
     Workshop();
     Workshop(string n, string desc, string d, string t, string p, int c, string i);
+    ~Workshop() override = default;
 
-    void displayDetails() const;
-    Event* create_event();
-    void saveToFile(const string& username);
-    Event* loadFromFile(const string& username);
+    void displayDetails() const override;
+    Event* create_event() override;
+    void saveToFile(const string& username) override;
+    static Event* loadFromFile(const string& username);
 
-    string getType() const;
+    string getType() const override;
     string getInstructor() const;
 };
 
+class User {
+    string username, password;
+public:
+    User();
+    User(string u, string p);
+    virtual ~User() = default;
 
-class Attendee {
+    void setUsername(string u);
+    string getUsername() const;
+
+    void setPassword(string p);
+    string getPassword() const;
+
+    // Used to store Users in set in alphabetical order.
+    bool operator<(const User& other) const;
+};
+
+class Attendee : public User {
 private:
-    string name, email, affiliation;
-
+    string affiliation;
 public:
     Attendee();
-    Attendee(string n, string e, string a);
-
-    void setEmail(string e);
-    string getEmail() const;
-
-    void setName(string n);
-    string getName() const;
+    Attendee(string u, string p, string a);
+    ~Attendee() override = default;
 
     void setAffiliation(string a);
     string getAffiliation() const;
@@ -109,10 +120,10 @@ private:
     string name;
     int rating;
     string review;
-
 public:
     Feedback();
     Feedback(string n, int ra, string re);
+    ~Feedback() = default;
 
     void display() const;
 
@@ -120,7 +131,7 @@ public:
     string getReview() const;
 };
 
-//Functions definitions
+// Function declarations
 void setup();
 void start_menu(unordered_set<string>& usernames);
 void signup(unordered_set<string>& usernames);
@@ -129,7 +140,7 @@ void main_menu(string const& logged_user, unordered_set<string>& usernames);
 void events_menu(string const& logged_user, unordered_set<string>& usernames);
 void signout(unordered_set<string>& usernames);
 void schedule_event(string const& logged_user, Event* event);
-multiset<Event*> loadEventsForUser(const string& username);
-template <typename T> void printMultiset(const multiset<T>& mset);
-
+set<Event*> loadEventsForUser(const string& username);
+template <typename T> void printMultiset(const set<T>& mset);
+User User_Factory(string const& username, string const& password);
 #endif
