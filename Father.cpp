@@ -4,6 +4,7 @@
 #include <string>
 #include <set>
 #include <sstream>
+#include <limits>
 
 using namespace std;
 
@@ -39,19 +40,33 @@ public:
     string getType() const { return type; }
 };
 
-class Attendee {
+class User {
+    string username, password;
+public:
+    User() {};
+    User(string u, string p): username(u), password(p){}
+
+    void setUsername(string u) { username = u; }
+    string getUsername() const { return username; }
+
+    void setPassword(string p) { password = p; }
+    string getPassword() const { return password; }
+
+    // Used to store Users in set in alphabetical order.
+    bool operator<(const User& other) const {
+        return username < other.username;
+    }
+
+
+};
+
+class Attendee : public User {
 private:
-    string name, email, affiliation;
+    string affiliation;
 
 public:
     Attendee() {}
-    Attendee(string n, string e, string a) : name(n), email(e), affiliation(a) {}
-
-    void setEmail(string e) { email = e; }
-    string getEmail() const { return email; }
-
-    void setName(string n) { name = n; }
-    string getName() const { return name; }
+    Attendee(string u, string p, string a) : User(u,p), affiliation(a) {}
 
     void setAffiliation(string a) { affiliation = a; }
     string getAffiliation() const { return affiliation; }
@@ -80,7 +95,7 @@ public:
     string getReview() const { return review; }
 };
 
-void main_menu(string const& logged_user);
+void main_menu(string const& logged_user, unordered_set<string>& usernames);
 void schedule_event(string const& logged_user);
 void setup();
 
@@ -108,13 +123,13 @@ multiset<Event> loadEventsForUser(const string& username) {
         Event e(name, desc, date, time, platform, capacity, type);
         userEvents.insert(e);
     }
-
     return userEvents;
 }
 
 template <typename T>
 void printMultiset(const multiset<T>& mset) {
-    cout << "Multiset elements:\n";
+    cout << "\nUser Events:\n";
+    cout << "-----------------------------" << endl;
     for (const T& value : mset) {
         value.displayDetails();  // Calls the displayDetails() method
         cout << "-----------------------------" << endl;  // Optional separator
@@ -162,57 +177,66 @@ string login() {
 void signup(unordered_set<string>& usernames) {
     string username, password;
 
-    cout << "Enter username: ";
-    cin >> username;
+    while (true) {
+        cout << "Enter username: ";
+        cin >> username;
 
-    if (usernames.count(username)) {
-        cout << "Username is taken!" << endl;
-        signup(usernames);
-        return;
+        if (usernames.count(username)) {
+            cout << "Username is taken!" << endl;
+            continue;
+        }
+
+        cout << "Enter password: ";
+        cin >> password;
+
+        ofstream users("loginDataBase.txt", ios::app);
+        if (!users.is_open()) {
+            cout << "Error: Unable to open database file!" << endl;
+            return;
+        }
+
+        users << username << " " << password << "\n";
+        users.close();
+        usernames.insert(username);
+
+        cout << "Signup successful!" << endl;
+        break;
     }
-
-    cout << "Enter password: ";
-    cin >> password;
-
-    ofstream users("loginDataBase.txt", ios::app);
-    if (!users.is_open()) {
-        cout << "Error: Unable to open database file!" << endl;
-        return;
-    }
-
-    users << username << " " << password << "\n";
-    users.close();
-    usernames.insert(username);
-
-    cout << "Signup successful!" << endl;
 }
 
 void start_menu(unordered_set<string>& usernames) {
     int choice;
-    cout << "\nPlease choose one of these options:" << endl;
-    cout << "1) Login" << endl;
-    cout << "2) Signup" << endl;
-    cout << "3) Exit" << endl;
-    cout << "Enter a number: ";
-    cin >> choice;
+    while (true) {
+        cout << "\nPlease choose one of these options:" << endl;
+        cout << "1) Login" << endl;
+        cout << "2) Signup" << endl;
+        cout << "3) Exit" << endl;
+        cout << "Enter a number: ";
+        cin >> choice;
 
-    switch (choice) {
-        case 1:
-            main_menu(login());
-            break;
-        case 2:
-            signup(usernames);
-            start_menu(usernames);
-            break;
-        case 3:
-            exit(0);
-        default:
-            cout << "Invalid choice, please choose 1, 2 or 3." << endl;
-            start_menu(usernames);
+        if (cin.fail()) {
+            cin.clear(); // clear the error flag
+            cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard bad input
+            cout << "Invalid input. Please enter a number." << endl;
+            continue;
+        }
+
+        switch (choice) {
+            case 1:
+                main_menu(login(), usernames);
+                return;
+            case 2:
+                signup(usernames);
+                break;
+            case 3:
+                exit(0);
+            default:
+                cout << "Invalid choice, please choose 1, 2 or 3." << endl;
+        }
     }
 }
 
-void main_menu(string const& logged_user) {
+void main_menu(string const& logged_user, unordered_set<string>& usernames) {
     while (true) {
         int choice;
         cout << "\nPlease choose one of these options:" << endl;
@@ -230,7 +254,7 @@ void main_menu(string const& logged_user) {
                 printMultiset(loadEventsForUser(logged_user));
             break;
             case 3:
-                setup();
+                start_menu(usernames);
                 exit(0);
             default:
                 cout << "Invalid choice, please choose 1, 2 or 3." << endl;
@@ -238,7 +262,7 @@ void main_menu(string const& logged_user) {
     }
 }
 
-Event createEvent_Factory() {
+Event Event_Factory() {
     string name, desc, platform, date, time, type;
     int capacity;
 
@@ -259,6 +283,10 @@ Event createEvent_Factory() {
     cin >> capacity;
 
     return Event(name, desc, date, time, platform, capacity, type);
+}
+
+User User_Factory(string const& username, string const& password) {
+    return User(username, password);
 }
 
 void saveEventToFile(const Event& e, const string& username) {
@@ -282,7 +310,7 @@ void saveEventToFile(const Event& e, const string& username) {
 
 void schedule_event(string const& logged_user) {
     static multiset<Event> eventList;
-    Event const e = createEvent_Factory();
+    Event const e = Event_Factory();
     eventList.insert(e);
 
     saveEventToFile(e,logged_user);
@@ -290,10 +318,12 @@ void schedule_event(string const& logged_user) {
 
 void setup() {
     unordered_set<string> usernames;
-    string userName, dummy;
+    set<User> Users;
+    string userName, password;
     ifstream users("loginDataBase.txt");
 
-    while (users >> userName >> dummy) {
+    while (users >> userName >> password) {
+        Users.insert(User_Factory(userName, password));
         usernames.insert(userName);
     }
     users.close();
