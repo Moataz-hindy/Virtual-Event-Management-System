@@ -131,14 +131,16 @@ public:
     string getReview() const;
 };
 
+//Global variables
+unordered_set<string> usernames_set;
+
 // Function declarations
 void setup();
-void start_menu(unordered_set<string>& usernames);
-void signup(unordered_set<string>& usernames);
+void start_menu();
+void signup();
 string login();
-void main_menu(string const& logged_user, unordered_set<string>& usernames);
-void events_menu(string const& logged_user, unordered_set<string>& usernames);
-void signout(unordered_set<string>& usernames);
+void main_menu(string const& logged_user);
+void events_menu(string const& logged_user);
 void schedule_event(string const& logged_user, Event* event);
 set<Event*> loadEventsForUser(const string& username);
 template <typename T> void printMultiset(const set<T>& mset);
