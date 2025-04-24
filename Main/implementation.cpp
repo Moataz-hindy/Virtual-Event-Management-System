@@ -388,15 +388,15 @@ string login() {
     }
 }
 
-void signup(unordered_set<string>& usernames) {
+void signup() {
     string username, password;
 
     cout << "Enter username: ";
     cin >> username;
 
-    if (usernames.count(username)) {
+    if (usernames_set.count(username)) {
         cout << "Username is taken!" << endl;
-        signup(usernames);
+        signup();
     }
 
     cout << "Enter password: ";
@@ -410,82 +410,80 @@ void signup(unordered_set<string>& usernames) {
 
     users << username << " " << password << "\n";
     users.close();
-    usernames.insert(username);
+    usernames_set.insert(username);
 
     cout << "Signup successful!" << endl;
 }
 
-void start_menu(unordered_set<string>& usernames) {
+void start_menu() {
     int choice;
-    while (true){
-        cout << "\nPlease choose one of these options:" << endl;
-        cout << "1) Login" << endl;
-        cout << "2) Signup" << endl;
-        cout << "3) Exit" << endl;
-        cout << "Enter a number: ";
-        cin >> choice;
+    cout << "\nPlease choose one of these options:" << endl;
+    cout << "1) Login" << endl;
+    cout << "2) Signup" << endl;
+    cout << "3) Exit" << endl;
+    cout << "Enter a number: ";
+    cin >> choice;
 
-        if (cin.fail()) {
-            cin.clear(); // clear the error flag
-            cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard bad input
-            cout << "Invalid input. Please enter a number." << endl;
-            continue;
-        }
+    if (cin.fail()) {
+        cin.clear(); // clear the error flag
+        cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard bad input
+        cout << "Invalid input. Please enter a number." << endl;
+        start_menu();
+    }
 
-        switch (choice) {
-            case 1:
-                main_menu(login(), usernames);
-                return;
-                break;
-            case 2:
-                signup(usernames);
-                break;
-            case 3:
-                exit(0);
-            default:
-                cout << "Invalid choice, please choose 1, 2 or 3." << endl;
-        }
+    switch (choice) {
+        case 1:
+            main_menu(login());
+            return;
+            break;
+        case 2:
+            signup();
+            start_menu();
+            break;
+        case 3:
+            exit(0);
+        default:
+            cout << "Invalid choice, please choose 1, 2 or 3." << endl;
     }
 }
 
-void main_menu(string const& logged_user, unordered_set<string>& usernames) {
+void main_menu(string const& logged_user) {
     int choice;
-    while (true) {
-        cout << "\nPlease choose one of these options:" << endl;
-        cout << "1) Schedule Meeting" << endl;
-        cout << "2) Open Calendar for user" << endl;
-        cout << "3) Sign out" << endl;
-        cout << "Enter a number: ";
-        cin >> choice;
 
-        if (cin.fail()) {
-            cin.clear(); // clear the error flag
-            cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard bad input
-            cout << "Invalid input. Please enter a number." << endl;
-            continue;
-        }
+    cout << "\nPlease choose one of these options:" << endl;
+    cout << "1) Schedule Meeting" << endl;
+    cout << "2) Open Calendar for user" << endl;
+    cout << "3) Sign out" << endl;
+    cout << "Enter a number: ";
+    cin >> choice;
 
-        switch (choice) {
+    if (cin.fail()) {
+        cin.clear(); // clear the error flag
+        cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard bad input
+        cout << "Invalid input. Please enter a number." << endl;
+        main_menu(logged_user);
+    }
+
+    switch (choice) {
         case 1:
-            events_menu(logged_user, usernames);
+            events_menu(logged_user);
             break; // Continue the loop to let the user choose again
         case 2:
             printMultiset(loadEventsForUser(logged_user));
             break; // Continue the loop to let the user choose again
         case 3:
-            start_menu(usernames);  // Sign out and return to start menu
+            start_menu();  // Sign out and return to start menu
             return; // Exit the loop and the main_menu function
         default:
             cout << "Invalid choice, please choose 1, 2, or 3." << endl;
-        }
     }
+    
 }
 
-void events_menu(string const& logged_user, unordered_set<string>& usernames) {
-    Event* event;
+void events_menu(string const& logged_user) {
     int choice;
 
-    while (true) {  // Loop to keep asking for valid input
+
         cout << "\nPlease choose the type of the event:" << endl;
         cout << "1) Conference" << endl;
         cout << "2) Webinar" << endl;
@@ -499,7 +497,7 @@ void events_menu(string const& logged_user, unordered_set<string>& usernames) {
             cin.clear(); // clear the error flag
             cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard bad input
             cout << "Invalid input. Please enter a number." << endl;
-            continue;  // Repeat the loop
+            events_menu(logged_user);  // Repeat the loop
         }
 
         Event* tempEvent = nullptr;
@@ -507,22 +505,24 @@ void events_menu(string const& logged_user, unordered_set<string>& usernames) {
         case 1:
             tempEvent = new Conference();
             schedule_event(logged_user, tempEvent);
+            main_menu(logged_user);
             break;
         case 2:
             tempEvent = new Webinar();
             schedule_event(logged_user, tempEvent);
+            main_menu(logged_user);
             break;
         case 3:
             tempEvent = new Workshop();
             schedule_event(logged_user, tempEvent);
+            main_menu(logged_user);
             break;
         case 4:
-            main_menu(logged_user, usernames);
+            main_menu(logged_user);
             return;  // Exit the function and go back to the main menu
         default:
             cout << "Invalid choice, please choose 1, 2, 3, or 4." << endl;
         }
-    }
 }
 
 void schedule_event(string const& logged_user, Event* event) {
@@ -536,14 +536,13 @@ void schedule_event(string const& logged_user, Event* event) {
 }
 
 void setup() {
-    unordered_set<string> usernames;
     set<User> Users;
     string userName, password;
     ifstream users("loginDataBase.txt");
 
     while (users >> userName >> password) {
         Users.insert(User_Factory(userName, password));
-        usernames.insert(userName);
+        usernames_set.insert(userName);
     }
     users.close();
 
@@ -551,5 +550,10 @@ void setup() {
     cout << "=========WELCOME=========" << endl;
     cout << "=========================" << endl;
 
-    start_menu(usernames);
+    start_menu();
+}
+
+int main() {
+    setup();
+    return 0;
 }
