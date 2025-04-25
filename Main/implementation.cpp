@@ -553,7 +553,3 @@ void setup() {
     start_menu();
 }
 
-int main() {
-    setup();
-    return 0;
-}
