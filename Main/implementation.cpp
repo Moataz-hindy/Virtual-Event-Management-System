@@ -1,3 +1,4 @@
+
 #include "events.h"
 #include <iostream>
 #include <fstream>
@@ -9,6 +10,7 @@
 
 using namespace std;
 
+unordered_set<string> usernames;
 
 //////////////////////////User//////////////////////////
 User::User(){}
@@ -394,9 +396,10 @@ void signup() {
     cout << "Enter username: ";
     cin >> username;
 
-    if (usernames_set.count(username)) {
+    if (usernames.count(username)) {
         cout << "Username is taken!" << endl;
         signup();
+        return;
     }
 
     cout << "Enter password: ";
@@ -410,80 +413,81 @@ void signup() {
 
     users << username << " " << password << "\n";
     users.close();
-    usernames_set.insert(username);
+    usernames.insert(username);
 
     cout << "Signup successful!" << endl;
 }
 
 void start_menu() {
     int choice;
-    cout << "\nPlease choose one of these options:" << endl;
-    cout << "1) Login" << endl;
-    cout << "2) Signup" << endl;
-    cout << "3) Exit" << endl;
-    cout << "Enter a number: ";
-    cin >> choice;
+    while (true){
+        cout << "\nPlease choose one of these options:" << endl;
+        cout << "1) Login" << endl;
+        cout << "2) Signup" << endl;
+        cout << "3) Exit" << endl;
+        cout << "Enter a number: ";
+        cin >> choice;
 
-    if (cin.fail()) {
-        cin.clear(); // clear the error flag
-        cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard bad input
-        cout << "Invalid input. Please enter a number." << endl;
-        start_menu();
-    }
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input. Please enter a number." << endl;
+            continue;
+        }
 
-    switch (choice) {
-        case 1:
-            main_menu(login());
-            return;
-            break;
-        case 2:
-            signup();
-            start_menu();
-            break;
-        case 3:
-            exit(0);
-        default:
-            cout << "Invalid choice, please choose 1, 2 or 3." << endl;
+        switch (choice) {
+            case 1:
+                main_menu(login());
+                return;
+            case 2:
+                signup();
+                break;
+            case 3:
+                exit(0);
+            default:
+                cout << "Invalid choice, please choose 1, 2 or 3." << endl;
+        }
     }
 }
 
 void main_menu(string const& logged_user) {
     int choice;
+    while (true) {
+        cout << "\nPlease choose one of these options:" << endl;
+        cout << "1) Schedule Meeting" << endl;
+        cout << "2) Open Calendar for user" << endl;
+        cout << "3) Sign out" << endl;
+        cout << "Enter a number: ";
+        cin >> choice;
 
-    cout << "\nPlease choose one of these options:" << endl;
-    cout << "1) Schedule Meeting" << endl;
-    cout << "2) Open Calendar for user" << endl;
-    cout << "3) Sign out" << endl;
-    cout << "Enter a number: ";
-    cin >> choice;
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input. Please enter a number." << endl;
+            continue;
+        }
 
-    if (cin.fail()) {
-        cin.clear(); // clear the error flag
-        cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard bad input
-        cout << "Invalid input. Please enter a number." << endl;
-        main_menu(logged_user);
-    }
-
-    switch (choice) {
+        switch (choice) {
         case 1:
             events_menu(logged_user);
-            break; // Continue the loop to let the user choose again
+            break;
         case 2:
             printMultiset(loadEventsForUser(logged_user));
-            break; // Continue the loop to let the user choose again
+            break;
         case 3:
-            start_menu();  // Sign out and return to start menu
-            return; // Exit the loop and the main_menu function
+            start_menu();
+            return;
         default:
             cout << "Invalid choice, please choose 1, 2, or 3." << endl;
+        }
     }
-    
 }
 
 void events_menu(string const& logged_user) {
+    Event* event;
     int choice;
 
-
+    while (true) {
         cout << "\nPlease choose the type of the event:" << endl;
         cout << "1) Conference" << endl;
         cout << "2) Webinar" << endl;
@@ -492,12 +496,11 @@ void events_menu(string const& logged_user) {
         cout << "Enter a number: ";
         cin >> choice;
 
-        // Handle invalid input
         if (cin.fail()) {
-            cin.clear(); // clear the error flag
-            cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard bad input
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
             cout << "Invalid input. Please enter a number." << endl;
-            events_menu(logged_user);  // Repeat the loop
+            continue;
         }
 
         Event* tempEvent = nullptr;
@@ -505,24 +508,22 @@ void events_menu(string const& logged_user) {
         case 1:
             tempEvent = new Conference();
             schedule_event(logged_user, tempEvent);
-            main_menu(logged_user);
             break;
         case 2:
             tempEvent = new Webinar();
             schedule_event(logged_user, tempEvent);
-            main_menu(logged_user);
             break;
         case 3:
             tempEvent = new Workshop();
             schedule_event(logged_user, tempEvent);
-            main_menu(logged_user);
             break;
         case 4:
             main_menu(logged_user);
-            return;  // Exit the function and go back to the main menu
+            return;
         default:
             cout << "Invalid choice, please choose 1, 2, 3, or 4." << endl;
         }
+    }
 }
 
 void schedule_event(string const& logged_user, Event* event) {
@@ -542,7 +543,7 @@ void setup() {
 
     while (users >> userName >> password) {
         Users.insert(User_Factory(userName, password));
-        usernames_set.insert(userName);
+        usernames.insert(userName);
     }
     users.close();
 
@@ -552,4 +553,3 @@ void setup() {
 
     start_menu();
 }
-
