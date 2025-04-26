@@ -1,3 +1,4 @@
+
 // events.h
 #ifndef EVENTS_H
 #define EVENTS_H
@@ -139,5 +140,8 @@ void schedule_event(string const& logged_user, Event* event);
 set<Event*> loadEventsForUser(const string& username);
 template <typename T> void printMultiset(const set<T>& mset);
 User User_Factory(string const& username, string const& password);
+void search_by_name();
+void search_by_date();
+void search_by_type();
 
 #endif
