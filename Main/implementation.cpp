@@ -1,4 +1,3 @@
-
 #include "events.h"
 #include <iostream>
 #include <fstream>
@@ -7,6 +6,9 @@
 #include <set>
 #include <sstream>
 #include <limits>
+#include <vector>
+#include <algorithm>
+
 
 using namespace std;
 
@@ -353,6 +355,114 @@ template <typename T> void printMultiset(const set<T>& mset) {
     }
 }
 
+void search_by_name(){
+    set<Event*> matchedEvents;
+
+    cout << "Enter event name: ";
+    string event_name;
+    cin >> event_name;
+
+    ifstream events("events.txt");
+    string line;
+    string type, fileUser, name;
+    while(getline(events, line)){
+        stringstream ss(line);
+        getline(ss, type, '|');
+        getline(ss, fileUser, '|');
+
+        getline(ss, name, '|');
+        if(event_name == name){
+            if (type == "Conference") {
+                matchedEvents.insert(Conference::loadFromFile(line));
+            } else if (type == "Webinar") {
+                matchedEvents.insert(Webinar::loadFromFile(line));
+            } else if (type == "Workshop") {
+                matchedEvents.insert(Workshop::loadFromFile(line));
+            }
+        }
+    }
+    if(matchedEvents.empty()){
+        cout << "No results found!";
+    }else{
+        printMultiset(matchedEvents);
+    }
+}
+
+void search_by_date(){
+    set<Event*> matchedEvents;
+
+    cout << "Enter event date (YYYY-MM-DD): ";
+    string event_date;
+    cin >> event_date;
+
+    ifstream events("events.txt");
+    string line;
+    string type, fileUser, name, desc, date;
+    while(getline(events, line)){
+        stringstream ss(line);
+        getline(ss, type, '|');
+        getline(ss, fileUser, '|');
+        getline(ss, name, '|');
+        getline(ss, desc, '|');
+
+        getline(ss, date, '|');
+        if(event_date == date){
+            if (type == "Conference") {
+                matchedEvents.insert(Conference::loadFromFile(line));
+            } else if (type == "Webinar") {
+                matchedEvents.insert(Webinar::loadFromFile(line));
+            } else if (type == "Workshop") {
+                matchedEvents.insert(Workshop::loadFromFile(line));
+            }
+        }
+    }
+    if(matchedEvents.empty()){
+        cout << "No results found!";
+    }else{
+        printMultiset(matchedEvents);
+    }
+}
+
+void search_by_type(){
+    set<Event*> matchedEvents;
+
+    cout << "\nPlease choose the type of the event:" << endl;
+    cout << "1) Conference" << endl;
+    cout << "2) Webinar" << endl;
+    cout << "3) Workshop" << endl;
+    cout << "Enter a number: ";
+    int type_number;
+    cin >> type_number;
+    
+    ifstream events("events.txt");
+    string line, type;
+
+    while(getline(events, line)){
+        stringstream ss(line);
+        getline(ss, type, '|');
+        if(type_number == 1){
+            if (type == "Conference") {
+                matchedEvents.insert(Conference::loadFromFile(line));
+            } 
+        }else if(type_number == 2){
+            if (type == "Webinar") {
+                matchedEvents.insert(Webinar::loadFromFile(line));
+            }
+        }else if(type_number == 3){
+            if (type == "Workshop") {
+                matchedEvents.insert(Workshop::loadFromFile(line));
+            }
+        }
+    }
+
+    if(matchedEvents.empty()){
+        cout << "No results found!";
+    }else{
+        printMultiset(matchedEvents);
+    }
+    
+}
+
 string login() {
     string username, password;
 
@@ -450,13 +560,16 @@ void start_menu() {
     }
 }
 
+
 void main_menu(string const& logged_user) {
-    int choice;
-    while (true) {
+    int choice, search_choice;
+    while(true){
         cout << "\nPlease choose one of these options:" << endl;
         cout << "1) Schedule Meeting" << endl;
         cout << "2) Open Calendar for user" << endl;
-        cout << "3) Sign out" << endl;
+        cout << "3) Search for a meeting" << endl;
+        cout << "4) Sign out" << endl;
+        cout << "5) Exit" << endl;
         cout << "Enter a number: ";
         cin >> choice;
 
@@ -475,16 +588,40 @@ void main_menu(string const& logged_user) {
             printMultiset(loadEventsForUser(logged_user));
             break;
         case 3:
+            
+            cout << "\nPlease choose one of these options:" << endl;
+            cout << "1) Search by Event name" << endl;
+            cout << "2) Search by Event date" << endl;
+            cout << "3) Search by Event type" << endl;
+            cout << "Enter a number: ";
+            cin >> search_choice;
+            switch(search_choice){
+            case 1:
+                search_by_name();
+                break;
+            case 2:
+                search_by_date();
+                break;
+            case 3:
+                search_by_type();
+                break;
+            default:
+                cout << "Invalid choice, please choose 1, 2 or 3." << endl;
+                break;
+            }
+            break;
+        case 4:
             start_menu();
             return;
+        case 5:
+            exit(0);
         default:
-            cout << "Invalid choice, please choose 1, 2, or 3." << endl;
+            cout << "Invalid choice, please choose 1, 2, 3, 4 or 5." << endl;
         }
     }
 }
 
 void events_menu(string const& logged_user) {
-    Event* event;
     int choice;
 
     while (true) {
@@ -508,14 +645,17 @@ void events_menu(string const& logged_user) {
         case 1:
             tempEvent = new Conference();
             schedule_event(logged_user, tempEvent);
+            main_menu(logged_user);
             break;
         case 2:
             tempEvent = new Webinar();
             schedule_event(logged_user, tempEvent);
+            main_menu(logged_user);
             break;
         case 3:
             tempEvent = new Workshop();
             schedule_event(logged_user, tempEvent);
+            main_menu(logged_user);
             break;
         case 4:
             main_menu(logged_user);
