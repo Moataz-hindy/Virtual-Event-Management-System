@@ -4,6 +4,11 @@
 #include <string>
 #include <set>
 #include <unordered_set>
+#include <vector>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <limits>
 
 using namespace std;
 
@@ -139,5 +144,6 @@ void schedule_event(string const& logged_user, Event* event);
 set<Event*> loadEventsForUser(const string& username);
 template <typename T> void printMultiset(const set<T>& mset);
 User User_Factory(string const& username, string const& password);
-
+void meeting_postponement(const string& username);
+void meeting_cancellation(const string& username);
 #endif
