@@ -1,17 +1,6 @@
-
 #include "events.h"
-#include <iostream>
-#include <fstream>
-#include <unordered_set>
-#include <string>
-#include <set>
-#include <sstream>
-#include <limits>
-
-using namespace std;
 
 unordered_set<string> usernames;
-
 //////////////////////////User//////////////////////////
 User::User(){}
 User::User(string u, string p): username(u), password(p){}
@@ -67,8 +56,16 @@ Event* Conference::create_event(){
     getline(cin, platform);
     cout << "Enter date (YYYY-MM-DD): ";
     getline(cin, date);
+    while((date[4] != '-') || (date[7] != '-'))  {
+        cout << "Wrong format!" << endl << "Enter date (YYYY-MM-DD): ";
+        getline(cin, date);
+    }
     cout << "Enter time (HH:MM): ";
     getline(cin, time);
+    while(time[2] != ':') {
+        cout << "Wrong format!" << endl << "Enter time (HH:MM): ";
+        getline(cin, time);
+    }
     cout << "Enter capacity: ";
     cin >> capacity;
     cout << "Enter Duration (In days): ";
@@ -157,8 +154,16 @@ Event* Webinar::create_event(){
     getline(cin, platform);
     cout << "Enter date (YYYY-MM-DD): ";
     getline(cin, date);
+    while((date[4] != '-') || (date[7] != '-'))  {
+        cout << "Wrong format!" << endl << "Enter date (YYYY-MM-DD): ";
+        getline(cin, date);
+    }
     cout << "Enter time (HH:MM): ";
     getline(cin, time);
+    while(time[2] != ':') {
+        cout << "Wrong format!" << endl << "Enter time (HH:MM): ";
+        getline(cin, time);
+    }
     cout << "Enter capacity: ";
     cin >> capacity;
     cin.ignore();
@@ -239,8 +244,16 @@ Event* Workshop::create_event(){
     getline(cin, platform);
     cout << "Enter date (YYYY-MM-DD): ";
     getline(cin, date);
+    while((date[4] != '-') || (date[7] != '-'))  {
+        cout << "Wrong format!" << endl << "Enter date (YYYY-MM-DD): ";
+        getline(cin, date);
+    }
     cout << "Enter time (HH:MM): ";
     getline(cin, time);
+    while(time[2] != ':') {
+        cout << "Wrong format!" << endl << "Enter time (HH:MM): ";
+        getline(cin, time);
+    }
     cout << "Enter capacity: ";
     cin >> capacity;
     cin.ignore();
@@ -455,14 +468,16 @@ void main_menu(string const& logged_user) {
     while (true) {
         cout << "\nPlease choose one of these options:" << endl;
         cout << "1) Schedule Meeting" << endl;
-        cout << "2) Open Calendar for user" << endl;
-        cout << "3) Sign out" << endl;
+        cout << "2) Postpone Meeting" << endl;
+        cout << "3) Cancel Meeting" << endl;
+        cout << "4) Open Calendar for user" << endl;
+        cout << "5) Sign out" << endl;
         cout << "Enter a number: ";
         cin >> choice;
 
         if (cin.fail()) {
-            cin.clear();
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cin.clear(); // clear the error flag
+            cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard bad input
             cout << "Invalid input. Please enter a number." << endl;
             continue;
         }
@@ -470,15 +485,22 @@ void main_menu(string const& logged_user) {
         switch (choice) {
         case 1:
             events_menu(logged_user);
-            break;
+            break; // Continue the loop to let the user choose again
+
         case 2:
-            printMultiset(loadEventsForUser(logged_user));
+            meeting_postponement (logged_user);
             break;
         case 3:
-            start_menu();
-            return;
+            meeting_cancellation (logged_user);
+            break;
+        case 4:
+            printMultiset(loadEventsForUser(logged_user));
+            break; // Continue the loop to let the user choose again
+        case 5:
+            start_menu();  // Sign out and return to start menu
+            return; // Exit the loop and the main_menu function
         default:
-            cout << "Invalid choice, please choose 1, 2, or 3." << endl;
+            cout << "Invalid choice, please choose a number." << endl;
         }
     }
 }
@@ -552,4 +574,121 @@ void setup() {
     cout << "=========================" << endl;
 
     start_menu();
+}
+
+void meeting_postponement(const string& username) {
+    string eventName, line;
+    cout << "What is the name of the event you want to postpone (or type 'exit' to cancel): ";
+    cin >> eventName;
+
+    if (eventName == "exit") {
+        cout << "Postponement canceled.\n";
+        return;  // Immediately exit the function
+    }
+
+    ifstream file("events.txt");
+    vector<string> updatedLines;
+    string fileUser, name, desc, date, time, platform, capacityStr, host, type;
+    int flag = 0;
+
+    while (getline(file, line)) {
+        stringstream ss(line);
+        getline(ss, type, '|');
+        getline(ss, fileUser, '|');
+        getline(ss, name, '|');
+        getline(ss, desc, '|');
+        getline(ss, date, '|');
+        getline(ss, time, '|');
+        getline(ss, platform, '|');
+        getline(ss, capacityStr, '|');
+        getline(ss, host, '|'); // may not be needed depending on event
+
+        if (fileUser == username && name == eventName) {
+            cin.ignore();
+            cout << "New date (YYYY-MM-DD): ";
+            getline(cin, date);
+            while((date[4] != '-') || (date[7] != '-'))  {
+                cout << "Wrong format!" << endl << "Enter date (YYYY-MM-DD): ";
+                getline(cin, date);
+            }
+            cout << "New time (HH:MM): ";
+            getline(cin, time);
+            while(time[2] != ':') {
+            cout << "Wrong format!" << endl << "Enter time (HH:MM): ";
+            getline(cin, time);
+            }
+            flag = 1;
+        }
+
+        // Add the (possibly modified) line back
+        string updatedLine = type + "|" + fileUser + "|" + name + "|" + desc + "|" +
+                             date + "|" + time + "|" + platform + "|" +
+                             capacityStr + "|" + host;
+        updatedLines.push_back(updatedLine);
+    }
+    file.close();
+
+    // Write updated lines back into the same file
+    ofstream outFile("events.txt", ios::trunc); // overwrite file
+    for (const string& l : updatedLines) {
+        outFile << l << endl;
+    }
+    outFile.close();
+
+    if (flag == 0) {
+        cout << "Event not found.\n";
+        meeting_postponement(username);
+    } else {
+        cout << "Event postponed successfully!\n";
+    }
+}
+
+void meeting_cancellation(const string& username) {
+    string eventName, line;
+    cout << "What is the name of the event you want to cancel (or type 'exit' to go back): ";
+    cin.ignore();
+    getline(cin, eventName);
+
+    if (eventName == "exit") {
+        cout << "Exited cancellation.\n";
+        return;  // Immediately exit the function
+    }
+
+    ifstream file("events.txt");
+    vector<string> updatedLines;
+    string fileUser, name, desc, date, time, platform, capacityStr, host, type;
+    int flag = 0;
+
+    while (getline(file, line)) {
+        stringstream ss(line);
+        getline(ss, type, '|');
+        getline(ss, fileUser, '|');
+        getline(ss, name, '|');
+        getline(ss, desc, '|');
+        getline(ss, date, '|');
+        getline(ss, time, '|');
+        getline(ss, platform, '|');
+        getline(ss, capacityStr, '|');
+        getline(ss, host, '|');
+
+        if (fileUser == username && name == eventName) {
+            flag = 1;
+            continue;
+        }
+        updatedLines.push_back(line);
+    }
+    file.close();
+
+    ofstream outFile("events.txt", ios::trunc);
+    for (const string& l : updatedLines) {
+        outFile << l << endl;
+    }
+    outFile.close();
+
+    if (flag == 0) {
+        cout << "Event not found or you don't have permission to cancel it.\n";
+        meeting_cancellation(username);
+    } else {
+        cout << "Event cancelled successfully!\n";
+    }
 }
