@@ -310,22 +310,353 @@ Attendee::Attendee(string u, string p, string a) : User(u,p), affiliation(a) {}
 
 void Attendee::setAffiliation(string a) { affiliation = a; }
 string Attendee::getAffiliation() const { return affiliation; }
+
 ////////////////////////Feedback////////////////////////////
-Feedback::Feedback() {}
-Feedback::Feedback(string n, int ra, string re)
-    : name(n), rating(ra), review(re) {
-    if (rating < 0) rating = 0;
-    if (rating > 5) rating = 5;
+Feedback::Feedback()
+    : submissionTimestamp_(getCurrentTimestamp()),
+      anonymous_(false),
+      likelihoodToRecommend_(-1),
+      experienceLevel_(AttendeeExperienceLevel::NOT_SET),
+      eventDate_("")
+{}
+
+Feedback::Feedback(const string& reviewerUsername,
+                   const string& eventName,
+                   const string& eventType,
+                   const string& eventDate)
+    : reviewerUsername_(reviewerUsername),
+      eventName_(eventName),
+      eventType_(eventType),
+      submissionTimestamp_(getCurrentTimestamp()),
+      anonymous_(false),
+      likelihoodToRecommend_(-1),
+      experienceLevel_(AttendeeExperienceLevel::NOT_SET),
+      eventDate_(eventDate)
+{}
+
+// --- Core Feedback Information ---
+
+void Feedback::setOverallFeeling(const string& feeling) {overallFeeling_ = feeling;}
+
+string Feedback::getOverallFeeling() const {return overallFeeling_;}
+
+void Feedback::setLikelihoodToRecommend(int score) {
+    if (score >= 0 && score <= 10)
+        likelihoodToRecommend_ = score;
+    else
+        likelihoodToRecommend_ = -1;
 }
 
+int Feedback::getLikelihoodToRecommend() const {return likelihoodToRecommend_;}
 
+// --- Detailed Ratings for Specific Aspects ---
+
+void Feedback::setDetailedRating(const string& aspect, int rating) {
+    if (rating >= 1 && rating <= 5) {
+        detailedRatings_[aspect] = rating;
+    }
+}
+
+int Feedback::getDetailedRating(const string& aspect) const {
+    auto it = detailedRatings_.find(aspect);
+    return (it != detailedRatings_.end()) ? it->second : 0;
+}
+
+const map<string, int>& Feedback::getAllDetailedRatings() const {return detailedRatings_;}
+
+// ---Written Feedback (Qualitative Feedback) ---
+
+void Feedback::setHighlight(const string& highlight) {highlight_ = highlight;}
+
+string Feedback::getHighlight() const {return highlight_;}
+
+void Feedback::setImprovementSuggestion(const string& suggestion) {improvementSuggestion_ = suggestion;}
+
+string Feedback::getImprovementSuggestion() const {return improvementSuggestion_;}
+
+void Feedback::addTag(const string& tag) {tags_.push_back(tag);}
+
+const vector<string>& Feedback::getTags() const {return tags_;}
+
+// --- Reviewer Information ---
+
+void Feedback::setExperienceLevel(AttendeeExperienceLevel level) {experienceLevel_ = level;}
+
+Feedback::AttendeeExperienceLevel Feedback::getExperienceLevel() const {return experienceLevel_;}
+
+void Feedback::setAttendedAnonymously(bool anonymous) {anonymous_ = anonymous;}
+
+bool Feedback::didAttendAnonymously() const {return anonymous_;}
+
+// --- General Event Info ---
+
+string Feedback::getReviewerUsername() const {return reviewerUsername_;}
+
+string Feedback::getEventName() const {
+return eventName_;}
+
+string Feedback::getEventType() const {return eventType_;}
+
+string Feedback::getSubmissionTimestamp() const {return submissionTimestamp_;}
+
+void Feedback::setEventDate(const string& eventDate) {eventDate_ = eventDate;}
+
+string Feedback::getEventDate() const {return eventDate_;}
+
+// ------------------------------------------------- Display Functionality --------------------------------------------------------------------
 void Feedback::display() const {
-    cout << name << " rated " << rating << " out of 5" << endl;
-    cout << "Review: " << review << endl;
+    // Check if feedback is submitted before the event date
+    if (isSubmittedBeforeEvent()) {
+        cout << "Notice: The event has not been launched yet. Feedback submission is not allowed." << endl;
+        cout << "-------------------------------------------------" << endl;
+    }
+
+    // Show the basic event and reviewer information
+    cout << "--- Feedback for: " << eventName_ << " (" << eventType_ << ") ---" << endl;
+    cout << "Submitted by: " << reviewerUsername_ << " on " << submissionTimestamp_ << endl;
+
+
+    if (!overallFeeling_.empty()) {cout << "Overall Feeling: " << overallFeeling_ << endl;}
+
+
+    if (likelihoodToRecommend_ != -1) {cout << "Likelihood to Recommend: " << likelihoodToRecommend_ << "/10" << endl;}
+
+
+    if (experienceLevel_ != AttendeeExperienceLevel::NOT_SET) {cout << "Reviewer Experience Level: " << getExperienceLevelString() << endl;}
+
+    // Show detailed aspect ratings
+    cout << "\nDetailed Ratings (1-5):" << endl;
+    if (detailedRatings_.empty()) {
+        cout << "  (No detailed ratings given)" << endl;
+    } else {
+        // Go through each aspect and print its rating
+        map<string, int> sortedRatings = detailedRatings_; // Copy to allow sorting if needed
+        for (const auto& pair : sortedRatings) {
+            cout << "  - " << pair.first << ": " << pair.second << "/5" << endl;
+        }
+    }
+
+
+    cout << "\nQualitative Feedback:" << endl;
+    if (!highlight_.empty()) {
+        cout << "  Highlight: " << highlight_ << endl;
+    }
+    if (!improvementSuggestion_.empty()) {
+        cout << "  Suggestion for Improvement: " << improvementSuggestion_ << endl;
+    }
+
+    // Show any tags (keywords) added by the reviewer
+    if (!tags_.empty()) {
+        cout << "  Tags: ";
+        for (size_t i = 0; i < tags_.size(); ++i) {
+            cout << tags_[i] << (i == tags_.size() - 1 ? "" : ", ");
+        }
+        cout << endl;
+    }
+
+    cout << "-----------------------------------------" << endl;
 }
-int Feedback::getRating() const { return rating; }
-string Feedback::getReview() const { return review; }
+
+bool Feedback::isSubmittedBeforeEvent() const {
+    // If no event date is set, allow feedback
+    if (eventDate_.empty()) return false;
+
+    // Get the current system time
+    time_t now = time(nullptr);
+
+    // Convert the event date string to a time object
+    time_t eventTime = convertTimestampToTime(eventDate_);
+
+    // If conversion fails, allow feedback
+    if (eventTime == -1) return false;
+
+    // If the current time is earlier than the event time, block feedback
+    return now < eventTime;
+}
+
+
+time_t Feedback::convertTimestampToTime(const string& timestamp) {
+    std::tm tm = {}; // Initialize an empty tm structure
+    std::istringstream ss(timestamp); // Create a stream from the timestamp string
+    ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S"); // Read the time in specific format
+    return mktime(&tm); // Convert the tm structure into a time_t value
+}
+
+// ----------------------------------------------------------- Interaction Method -------------------------------------------------------------
+void Feedback::collectFeedbackInteractive(const vector<string>& potentialAspects) {
+    submissionTimestamp_ = getCurrentTimestamp(); // Set the time when feedback is collected
+
+    // If feedback is attempted before the event date, exit immediately
+    if (isSubmittedBeforeEvent()) {return;}
+
+    cout << "\n--- Providing Feedback for: " << eventName_ << " ---" << endl;
+    cout << "Help us improve! Please share your thoughts." << endl;
+
+    // Clear leftover input to avoid issues with getline and cin
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    // 1. Ask for Overall Feeling
+    cout << "In one word or short phrase, how did the event make you feel? (e.g., Inspired, Informed, Bored): ";
+    getline(cin, overallFeeling_); // Allow multi-word input
+
+    // 2. Ask for Likelihood to Recommend
+    int nps = -1;
+    cout << "On a scale of 0-10, how likely are you to recommend this event to a friend or colleague? ";
+    while (!(cin >> nps) || nps < 0 || nps > 10) {
+        cout << "Invalid input. Please enter a number between 0 and 10: ";
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    }
+    setLikelihoodToRecommend(nps);
+    cin.ignore(numeric_limits<streamsize>::max(), '\n'); // Clear newline character
+
+    // 3. Ask for Ratings on Different Aspects (optional)
+    if (!potentialAspects.empty()) {
+        cout << "\nPlease rate the following aspects (1-5, where 1=Poor, 5=Excellent, 0=Skip):" << endl;
+        for (const auto& aspect : potentialAspects) {
+            int rating = -1;
+            cout << "  - " << aspect << ": ";
+            while (!(cin >> rating) || rating < 0 || rating > 5) {
+                cout << "Invalid input. Please enter a number between 0 and 5: ";
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            }
+            if (rating > 0) { // Only save ratings that are actually given
+                setDetailedRating(aspect, rating);
+            }
+        }
+        cin.ignore(numeric_limits<streamsize>::max(), '\n'); // Clear newline character
+    }
+
+    // 4. Ask for Highlight and Suggestions
+    cout << "What was the absolute highlight or best part for you? (Press Enter to skip)\n> ";
+    getline(cin, highlight_);
+
+    cout << "Do you have any specific suggestions for how we could improve next time? (Press Enter to skip)\n> ";
+    getline(cin, improvementSuggestion_);
+
+    // 5. Ask for Tags (Comma-separated input)
+    string tagsInput;
+    cout << "Add some tags to describe your experience (e.g., fun, informative, too_long), separated by commas:\n> ";
+    getline(cin, tagsInput);
+
+    stringstream ss(tagsInput);
+    string tag;
+    while (getline(ss, tag, ',')) {
+        // Trim spaces from each tag
+        size_t first = tag.find_first_not_of(" \t\n\r\f\v");
+        if (string::npos == first) continue; // Skip empty tags
+        size_t last = tag.find_last_not_of(" \t\n\r\f\v");
+        tag = tag.substr(first, (last - first + 1));
+
+        if (!tag.empty()) {
+            addTag(tag);
+        }
+    }
+
+    // 6. Ask for Experience Level
+    int expChoice = 0;
+    cout << "What is your experience level related to this event's topic? (1: Beginner, 2: Intermediate, 3: Advanced, 4: Expert, 0: Skip): ";
+    while (!(cin >> expChoice) || expChoice < 0 || expChoice > 4) {
+        cout << "Invalid input. Please enter a number between 0 and 4: ";
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    }
+
+    //User's choice to internal experience level
+    if (expChoice > 0) {
+        switch (expChoice) {
+            case 1: setExperienceLevel(AttendeeExperienceLevel::BEGINNER); break;
+            case 2: setExperienceLevel(AttendeeExperienceLevel::INTERMEDIATE); break;
+            case 3: setExperienceLevel(AttendeeExperienceLevel::ADVANCED); break;
+            case 4: setExperienceLevel(AttendeeExperienceLevel::EXPERT); break;
+            default: setExperienceLevel(AttendeeExperienceLevel::NOT_SET); break;
+        }
+    } else {
+        setExperienceLevel(AttendeeExperienceLevel::NOT_SET);
+    }
+
+    cin.ignore(numeric_limits<streamsize>::max(), '\n'); // Clear newline character
+
+    // 7. Ask if Feedback Should be Anonymous
+    char anonChoice = 'n'; // Default is not anonymous
+    cout << "Would you like to submit this feedback anonymously? (y/n): ";
+    string anonInput;
+    getline(cin, anonInput);
+
+    if (!anonInput.empty()) {
+        anonChoice = tolower(anonInput[0]);
+    }
+    anonymous_ = (anonChoice == 'y');
+
+    cout << "\nThank you for your valuable feedback!" << endl;
+}
+
+void Feedback::saveToFile() const {
+    string filename = reviewerUsername_ + "_feedback.txt"; // Create filename using reviewer's username
+    ofstream outfile(filename, ios::app); // Open file in append mode
+
+    if (!outfile.is_open()) {
+        cout << "Error saving feedback!" << endl;
+        return;
+    }
+
+    // Write feedback details to the file
+    outfile << "--- Feedback Start ---" << endl;
+    outfile << "User: " << reviewerUsername_ << endl;
+    outfile << "Event: " << eventName_ << endl;
+    outfile << "Type: " << eventType_ << endl;
+    outfile << "Timestamp: " << submissionTimestamp_ << endl;
+    outfile << "Feeling: " << overallFeeling_ << endl;
+    outfile << "Recommend: " << likelihoodToRecommend_ << endl;
+    outfile << "Experience: " << getExperienceLevelString() << endl;
+    outfile << "Highlight: " << highlight_ << endl;
+    outfile << "Suggestion: " << improvementSuggestion_ << endl;
+
+    // Save all detailed ratings
+    outfile << "Ratings: ";
+    for (const auto& pair : detailedRatings_) {
+        outfile << pair.first << "=" << pair.second << ";";
+    }
+    outfile << endl;
+
+    // Save all tags
+    outfile << "Tags: ";
+    for (size_t i = 0; i < tags_.size(); ++i) {
+        outfile << tags_[i] << (i == tags_.size() - 1 ? "" : ",");
+    }
+    outfile << endl;
+
+    outfile << "--- Feedback End ---" << endl;
+
+    outfile.close();
+}
+
+string Feedback::getCurrentTimestamp() {
+    auto now = chrono::system_clock::now(); // Get current time
+    auto now_c = chrono::system_clock::to_time_t(now); // Convert to time_t
+    stringstream ss;
+
+    tm timeinfo;
+    localtime_s(&timeinfo, &now_c); // Safely convert to tm structure
+
+    ss << put_time(&timeinfo, "%Y-%m-%d %H:%M:%S"); // Format time nicely
+
+    return ss.str();
+}
+
+string Feedback::getExperienceLevelString() const {
+    switch (experienceLevel_) {
+        case AttendeeExperienceLevel::BEGINNER: return "Beginner";
+        case AttendeeExperienceLevel::INTERMEDIATE: return "Intermediate";
+        case AttendeeExperienceLevel::ADVANCED: return "Advanced";
+        case AttendeeExperienceLevel::EXPERT: return "Expert";
+        case AttendeeExperienceLevel::NOT_SET: return "Not Specified";
+        default: return "Unknown";
+    }
+}
 ////////////////////////////////////////////////////
+
 set<Event*> loadEventsForUser(const string& username) {
     ifstream file("events.txt");
     set<Event*> userEvents;
@@ -471,7 +802,9 @@ void main_menu(string const& logged_user) {
         cout << "2) Postpone Meeting" << endl;
         cout << "3) Cancel Meeting" << endl;
         cout << "4) Open Calendar for user" << endl;
-        cout << "5) Sign out" << endl;
+        cout << "5) Give feedback" << endl;
+        cout << "6) Review previous feedbacks"<< endl;
+        cout << "7) Sign out"<<endl;
         cout << "Enter a number: ";
         cin >> choice;
 
@@ -497,6 +830,12 @@ void main_menu(string const& logged_user) {
             printMultiset(loadEventsForUser(logged_user));
             break; // Continue the loop to let the user choose again
         case 5:
+            feedback_menu(logged_user);
+            break;
+        case 6:
+            review_feedbacks(logged_user);
+            break;
+         case 7:
             start_menu();  // Sign out and return to start menu
             return; // Exit the loop and the main_menu function
         default:
@@ -579,7 +918,7 @@ void setup() {
 void meeting_postponement(const string& username) {
     string eventName, line;
     cout << "What is the name of the event you want to postpone (or type 'exit' to cancel): ";
-    cin >> eventName;
+    getline(cin >> ws, eventName);
 
     if (eventName == "exit") {
         cout << "Postponement canceled.\n";
@@ -645,50 +984,179 @@ void meeting_postponement(const string& username) {
 
 void meeting_cancellation(const string& username) {
     string eventName, line;
-    cout << "What is the name of the event you want to cancel (or type 'exit' to go back): ";
-    cin.ignore();
-    getline(cin, eventName);
-
-    if (eventName == "exit") {
-        cout << "Exited cancellation.\n";
-        return;  // Immediately exit the function
-    }
-
-    ifstream file("events.txt");
-    vector<string> updatedLines;
-    string fileUser, name, desc, date, time, platform, capacityStr, host, type;
-    int flag = 0;
-
-    while (getline(file, line)) {
-        stringstream ss(line);
-        getline(ss, type, '|');
-        getline(ss, fileUser, '|');
-        getline(ss, name, '|');
-        getline(ss, desc, '|');
-        getline(ss, date, '|');
-        getline(ss, time, '|');
-        getline(ss, platform, '|');
-        getline(ss, capacityStr, '|');
-        getline(ss, host, '|');
-
-        if (fileUser == username && name == eventName) {
-            flag = 1;
-            continue;
+    while (true) {
+        cout << "What is the name of the event you want to cancel (or type 'exit' to go back): ";
+        getline(cin >> ws, eventName); // Use ws to skip leading whitespace
+        if (eventName == "exit") {
+            cout << "Exited cancellation.\n";
+            return;
         }
-        updatedLines.push_back(line);
-    }
-    file.close();
 
-    ofstream outFile("events.txt", ios::trunc);
-    for (const string& l : updatedLines) {
-        outFile << l << endl;
-    }
-    outFile.close();
+        ifstream file("events.txt");
+        if (!file.is_open()) { cout << "Error opening events file!\n"; return; }
+        vector<string> updatedLines;
+        string fileUser, name, desc, date, time, platform, capacityStr, host, type;
+        bool found = false;
 
-    if (flag == 0) {
-        cout << "Event not found or you don't have permission to cancel it.\n";
-        meeting_cancellation(username);
-    } else {
-        cout << "Event cancelled successfully!\n";
+        while (getline(file, line)) {
+            stringstream ss(line);
+            getline(ss, type, '|'); getline(ss, fileUser, '|'); getline(ss, name, '|');
+            getline(ss, desc, '|'); getline(ss, date, '|'); getline(ss, time, '|');
+            getline(ss, platform, '|'); getline(ss, capacityStr, '|'); getline(ss, host, '|');
+            if (fileUser == username && name == eventName) {
+                found = true;
+                continue;
+            }
+            updatedLines.push_back(line);
+        }
+        file.close();
+
+        if (found) {
+            ofstream outFile("events.txt", ios::trunc);
+            for (const string& l : updatedLines) outFile << l << "\n";
+            outFile.close();
+            cout << "Event canceled successfully!\n";
+            return;
+        } else {
+            cout << "Event not found or you don't have permission to cancel it. Try again.\n";
+        }
+    }
+}
+
+void feedback_menu(const std::string& logged_user) {
+    // Load all events associated with this user
+    set<Event*> userEvents = loadEventsForUser(logged_user);
+
+    if (userEvents.empty()) {
+        // If no events found, inform the user and exit
+        cout << "No events found to give feedback on!" << endl;
+        return;
+    }
+
+    // List all available events for the user to choose from
+    cout << endl;
+    cout << "Select an event to give feedback on:" << endl;
+    int index = 1;
+    vector<Event*> eventList;
+    for (Event* e : userEvents) {
+        cout << index++ << ") " << e->getName() << " on " << e->getDate() << " at " << e->getTime() << endl;
+        eventList.push_back(e);
+    }
+
+    // Ask user to select an event by number
+    int choice;
+    cout << "Enter event number: ";
+    cin >> choice;
+    cout << endl;
+
+    // Check if user selection is valid
+    if (choice < 1 || choice > eventList.size()) {
+        cout << "Invalid choice!" << endl;
+        return;
+    }
+
+    // Get the selected event
+    Event* selectedEvent = eventList[choice - 1];
+
+    // Extract event details
+    string eventTitle = selectedEvent->getName();
+    string eventDate = selectedEvent->getDate(); // Get the event date
+    string eventType = selectedEvent->getType();
+
+    // Define a list of feedback aspects
+    vector<string> aspects = { "Content", "Delivery", "Relevance", "Duration" };
+
+    // Create a Feedback object using the logged user and selected event
+    Feedback fb(logged_user, eventTitle, eventType, eventDate);
+
+    // Collect feedback from the user interactively
+    fb.collectFeedbackInteractive(aspects);
+
+    // Display the feedback summary
+    fb.display();
+
+    // Save the feedback to a file
+    fb.saveToFile();
+
+    // Clean up allocated memory for loaded events
+    for (Event* e : userEvents) {
+        delete e;
+    }
+}
+
+void review_feedbacks(const std::string& username) { // This function lets a user review all feedbacks they have submitted
+    string filename = username + "_feedback.txt";
+    ifstream infile(filename);
+
+    if (!infile.is_open()) {
+        // If feedback file not found, inform the user and exit
+        cout << "\nNo previous feedbacks found for user: " << username << endl;
+        return;
+    }
+
+    // Store feedback grouped by event name
+    map<string, vector<vector<string>>> feedbacksByEvent;
+    string line;
+    vector<string> currentFeedback;
+    string currentEvent;
+
+    // Read the feedback file line by line
+    while (getline(infile, line)) {
+        if (line == "--- Feedback Start ---") {
+            // Start of a new feedback block
+            currentFeedback.clear();
+        } else if (line == "--- Feedback End ---") {
+            // End of current feedback block
+            for (const string& entry : currentFeedback) {
+                if (entry.find("Event: ") == 0) {
+                    currentEvent = entry.substr(7); // Extract event name
+                    break;
+                }
+            }
+            if (!currentEvent.empty()) {
+                feedbacksByEvent[currentEvent].push_back(currentFeedback);
+            }
+            currentEvent.clear();
+        } else if (!line.empty()) {
+            // Collect feedback lines inside the block
+            currentFeedback.push_back(line);
+        }
+    }
+    infile.close();
+
+    if (feedbacksByEvent.empty()) {
+        cout << "No feedback entries found." << endl;
+        return;
+    }
+
+    // List all events the user has submitted feedback for
+    cout << "\n--- Events you've given feedback for ---" << endl;
+    int idx = 1;
+    vector<string> eventNames;
+    for (const auto& pair : feedbacksByEvent) {
+        cout << idx++ << ") " << pair.first << endl;
+        eventNames.push_back(pair.first);
+    }
+
+    // Ask user to select which event's feedbacks they want to review
+    int choice;
+    cout << "Enter the number of the event you want to review: ";
+    cin >> choice;
+    if (choice < 1 || choice > eventNames.size()) {
+        cout << "Invalid choice!" << endl;
+        return;
+    }
+
+    string selectedEvent = eventNames[choice - 1];
+    cout << "\n--- Feedback for Event: " << selectedEvent << " ---" << endl;
+
+    // Display all feedback entries for the selected event
+    int feedbackIdx = 1;
+    for (const auto& feedbackBlock : feedbacksByEvent[selectedEvent]) {
+        cout << "\nFeedback #" << feedbackIdx++ << ":\n";
+        for (const string& feedbackLine : feedbackBlock) {
+            cout << feedbackLine << endl;
+        }
+        cout << "----------------------------------------" << endl;
     }
 }
