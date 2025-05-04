@@ -1,9 +1,12 @@
 #include "events.h"
 
+set<User> Users; // haven't used yet
 unordered_set<string> usernames;
-//////////////////////////User//////////////////////////
+set<Event*> allEvents;
+
+//////////////////////////   User   //////////////////////////
 User::User(){}
-User::User(string u, string p): username(u), password(p){}
+User::User(string u, string p, string e, string a): username(u), password(p), email(e), affiliation(a){}
 
 void User::setUsername(string u) { username = u; }
 string User::getUsername() const { return username; }
@@ -11,16 +14,22 @@ string User::getUsername() const { return username; }
 void User::setPassword(string p) { password = p; }
 string User::getPassword() const { return password; }
 
+void User::setAffiliation(string a){ affiliation = a; }
+string User::getAffiliation() const{ return affiliation; }
+
+void User::setEmail(string e){ email = e; }
+string User::getEmail() const{ return email; }
+
     // Used to store Users in set in alphabetical order.
 bool User::operator<(const User& other) const {
         return username < other.username;
     }
 
 
-///////////////////////////Event/////////////////////////
+///////////////////////////   Event   /////////////////////////
 Event::Event(){}
-Event::Event(string n, string desc, string p, string d, string t, int c)
-    : event_name(n), description(desc), platform(p), date(d), time(t), capacity(c) {}
+Event::Event(string n, string desc, string p, string d, string t, int c, int f)
+    : event_name(n), description(desc), platform(p), date(d), time(t), capacity(c), full(f){}
 
 
 
@@ -31,14 +40,56 @@ string Event::getDate() const { return date; }
 string Event::getTime() const { return time; }
 string Event::getPlatform() const { return platform; }
 int Event::getCapacity() const { return capacity; }
+set<string> Event::getRegistrars(){
+    return registrars;
+}
+
+void Event::addRegister(const string& username){
+    registrars.insert(username);
+    if(registrars.size() >= capacity)
+        full = true;
+
+    ifstream inFile("events.txt");
+    string line, fileEventName, fileEventDate, fileEventTime;
+    vector <string> lines;
+    int targetLine, index = 0;
+    while(getline(inFile, line)){
+        lines.push_back(line);
+        stringstream ss(line);
+        getline(ss, fileEventName, '|'); //skip type
+        getline(ss, fileEventName, '|'); //skip username
+        getline(ss, fileEventName, '|'); //get event name
+        getline(ss, fileEventDate, '|'); //skip description
+        getline(ss, fileEventDate, '|'); //get date
+        getline(ss, fileEventTime, '|'); //get time
+        if(event_name == fileEventName && date == fileEventDate && time == fileEventTime){
+            targetLine = index;
+        }
+        index++;
+    }
+    inFile.close();
+    for(string registrar : registrars){
+        lines[targetLine] += registrar + "|";
+    }
+
+    ofstream outFile("events.txt", ios::trunc);
+    for(string l : lines){
+        outFile << l << endl;
+    }
+    outFile.close();
+}
+
+bool Event::isFull(){
+    return full;
+}
 
 bool Event::operator<(const Event& other) const {
     return (date == other.date) ? (time < other.time) : (date < other.date);
 }
-////////////////////////Conference////////////////////////////
+////////////////////////   Conference   ////////////////////////////
 Conference::Conference(){}
-Conference::Conference(string n, string desc, string p, string d, string t, int c, int dur)
-    : Event(n, desc, p, d, t, c), duration(dur) {}
+Conference::Conference(string n, string desc, string p, string d, string t, int c, int f, int dur)
+    : Event(n, desc, p, d, t, c, f), duration(dur) {}
 
 string Conference::getType() const{ return "Conference";}
 int Conference::getDuration() const{ return duration;}
@@ -71,7 +122,7 @@ Event* Conference::create_event(){
     cout << "Enter Duration (In days): ";
     cin >> duration;
 
-    Conference* conference = new Conference(name, desc, platform, date, time, capacity, duration);
+    Conference* conference = new Conference(name, desc, platform, date, time, capacity, 0, duration);
     return conference;
 }
 
@@ -99,13 +150,14 @@ void Conference::saveToFile(const string& username){
         << this->getTime() << "|"
         << this->getPlatform() << "|"
         << this->getCapacity() << "|"
-        << this->getDuration() << "\n";
+        << this->isFull() << "|"
+        << this->getDuration() << endl;
 }
 
 Event* Conference::loadFromFile(const string& line){
 
     stringstream ss(line);
-    string fileUser, name, desc, date, time, platform, capacityStr, durationStr, type;
+    string fileUser, name, desc, date, time, platform, capacityStr, fullStr, durationStr, type, registrar;
     getline(ss, type, '|');
     getline(ss, fileUser, '|');
 
@@ -115,19 +167,25 @@ Event* Conference::loadFromFile(const string& line){
     getline(ss, time, '|');
     getline(ss, platform, '|');
     getline(ss, capacityStr, '|');
+    getline(ss, fullStr, '|');
     getline(ss, durationStr, '|');
 
     int capacity = stoi(capacityStr);
     int duration = stoi(durationStr);
+    int full = stoi(fullStr);
 
-    Conference* conference = new Conference(name, desc, platform, date, time, capacity, duration);
+    Conference* conference = new Conference(name, desc, platform, date, time, capacity, full, duration);
+
+    while(getline(ss, registrar, '|')){
+        conference->addRegister(registrar);
+    }
 
     return conference;
 }
-/////////////////////////Webinar///////////////////////////
+/////////////////////////   Webinar   ///////////////////////////
 Webinar::Webinar(){}
-Webinar::Webinar(string n, string desc, string p, string d, string t, int c, string h)
-    : Event(n, desc, p, d, t, c), host(h) {}
+Webinar::Webinar(string n, string desc, string p, string d, string t, int c, int f, string h)
+    : Event(n, desc, p, d, t, c, f), host(h) {}
 
 string Webinar::getType() const{ return "Webinar";}
 string Webinar::getHost() const{ return host;}
@@ -170,7 +228,7 @@ Event* Webinar::create_event(){
     cout << "Enter Host: ";
     getline(cin, host);
 
-    Webinar* webinar = new Webinar(name, desc, platform, date, time, capacity, host);
+    Webinar* webinar = new Webinar(name, desc, platform, date, time, capacity, 0, host);
     return webinar;
 }
 
@@ -190,13 +248,14 @@ void Webinar::saveToFile(const string& username){
         << this->getTime() << "|"
         << this->getPlatform() << "|"
         << this->getCapacity() << "|"
-        << this->getHost() << "\n";
+        << this->isFull() << "|"
+        << this->getHost() << endl;
     file.close();
 }
 
 Event* Webinar::loadFromFile(const string& line){
     stringstream ss(line);
-    string fileUser, name, desc, date, time, platform, capacityStr, host, type;
+    string fileUser, name, desc, date, time, platform, capacityStr, fullStr, host, type, registrar;
     getline(ss, type, '|');
     getline(ss, fileUser, '|');
 
@@ -206,18 +265,24 @@ Event* Webinar::loadFromFile(const string& line){
     getline(ss, time, '|');
     getline(ss, platform, '|');
     getline(ss, capacityStr, '|');
+    getline(ss, fullStr, '|');
     getline(ss, host, '|');
 
     int capacity = stoi(capacityStr);
+    int full = stoi(fullStr);
 
-    Webinar* webinar = new Webinar(name, desc, platform, date, time, capacity, host);
+    Webinar* webinar = new Webinar(name, desc, platform, date, time, capacity, full, host);
+
+    while(getline(ss, registrar, '|')){
+        webinar->addRegister(registrar);
+    }
 
     return webinar;
 }
-////////////////////////////Workshop////////////////////////
+////////////////////////////   Workshop   ////////////////////////
 Workshop::Workshop(){}
-Workshop::Workshop(string n, string desc, string p, string d, string t, int c, string i)
-    : Event(n, desc, p, d, t, c), instructor(i) {}
+Workshop::Workshop(string n, string desc, string p, string d, string t, int c, int f, string i)
+    : Event(n, desc, p, d, t, c, f), instructor(i) {}
 
 string Workshop::getType() const{ return "Workshop";}
 string Workshop::getInstructor() const{ return instructor;}
@@ -260,7 +325,7 @@ Event* Workshop::create_event(){
     cout << "Enter Instructor: ";
     getline(cin, instructor);
 
-    Workshop* workshop = new Workshop(name, desc, platform, date, time, capacity, instructor);
+    Workshop* workshop = new Workshop(name, desc, platform, date, time, capacity, 0, instructor);
     return workshop;
 }
 
@@ -279,14 +344,15 @@ void Workshop::saveToFile(const string& username){
         << this->getTime() << "|"
         << this->getPlatform() << "|"
         << this->getCapacity() << "|"
-        << this->getInstructor() << "\n";
+        << this->isFull() << "|"
+        << this->getInstructor() << endl;
     file.close();
 }
 
 Event* Workshop::loadFromFile(const string& line){
 
     stringstream ss(line);
-    string fileUser, name, desc, date, time, platform, capacityStr, instructor, type;
+    string fileUser, name, desc, date, time, platform, capacityStr, fullStr, instructor, type, registrar;
     getline(ss, type, '|');
     getline(ss, fileUser, '|');
 
@@ -296,22 +362,99 @@ Event* Workshop::loadFromFile(const string& line){
     getline(ss, time, '|');
     getline(ss, platform, '|');
     getline(ss, capacityStr, '|');
+    getline(ss, fullStr, '|');
     getline(ss, instructor, '|');
 
     int capacity = stoi(capacityStr);
+    int full = stoi(fullStr);
 
-    Workshop* workshop = new Workshop(name, desc, platform, date, time, capacity, instructor);
+    Workshop* workshop = new Workshop(name, desc, platform, date, time, capacity, full, instructor);
+
+    while (getline(ss, registrar, '|')) {
+        workshop->addRegister(registrar);
+    }
+
     return workshop;
 }
-////////////////////////Attendee////////////////////////////
-Attendee::Attendee() {}
-Attendee::Attendee(string u, string p, string a) : User(u,p), affiliation(a) {}
+
+bool isAlreadyRegistered(const string& username, Event* event){
+    set<string> eventRegistrars = event->getRegistrars();
+    return(eventRegistrars.find(username) != eventRegistrars.end());
+}
+
+void register_event(const string& logged_user){
+    if (allEvents.empty()){
+        cout << "\nNo events available for registration." << endl;
+        return;
+    }
+
+    cout << "\nAvailable events:" << endl;
+    vector <Event*> events;
+    int index = 1;
+    for(Event* event : allEvents){
+        if(event->isFull()) continue;
+        cout << "----------------------------" << endl;
+        cout << index << ")\n";
+        event->displayDetails();
+        cout << endl;
+        events.push_back(event);
+        index++;
+    }
+    cout << "Choose an event to register (1-" << index-1 << "): ";
+
+    int choice;
+    while(true){
+        if(!(cin >> choice)){
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid choice, choose (1-4)): ";
+            continue;
+        }
+        else if(choice < 1 || choice > index-1){
+            cout << "Invalid choice, choose (1-" << index-1 << "): ";
+        }
+        else if(isAlreadyRegistered(logged_user, events[choice - 1])){
+            cout << "You've already registered for this event!" << endl;
+            cout << "Choose another event: " << endl;
+        }
+        else break;
+    }
+
+    Event* selectedEvent = events[choice - 1];
+    selectedEvent->addRegister(logged_user);
+    cout << "\nYou've registered successfully!" << endl;
+}
+
+set<Event*> getRegesteredEvents(const string& username){
+    set<Event*> RegisteredEvents;
+    for(Event* event : allEvents){
+        if(isAlreadyRegistered(username, event)){
+            RegisteredEvents.insert(event);
+        }
+    }
+    return RegisteredEvents;
+}
+
+void viewUserEvents(const string& username){
+    set<Event*> ScheduledEvents = loadEventsForUser(username);
+    set<Event*> RegesteredEvents = getRegesteredEvents(username);
 
 
-void Attendee::setAffiliation(string a) { affiliation = a; }
-string Attendee::getAffiliation() const { return affiliation; }
+    cout << "\nScheduled ";
+    if(ScheduledEvents.empty())
+        cout << "Meetings:\n-----------------------------\nYou have no scheduled meetings." << endl;
+    else
+        printMultiset(ScheduledEvents);
 
-////////////////////////Feedback////////////////////////////
+    cout << "\nRegistered ";
+    if(RegesteredEvents.empty())
+        cout << "Meetings:\n-----------------------------\nYou have no registered meetings." << endl;
+    else
+        printMultiset(RegesteredEvents);
+}
+
+
+////////////////////////   Feedback   ////////////////////////////
 Feedback::Feedback()
     : submissionTimestamp_(getCurrentTimestamp()),
       anonymous_(false),
@@ -676,13 +819,12 @@ set<Event*> loadEventsForUser(const string& username) {
             }
         }
     }
-
     file.close();
     return userEvents;
 }
 
-User User_Factory(string const& username, string const& password) {
-    return User(username, password);
+User User_Factory(string const& username, string const& password, string const& email, string const& affiliation) {
+    return User(username, password, email, affiliation);
 }
 
 template <typename T> void printMultiset(const set<T>& mset) {
@@ -706,27 +848,29 @@ string login() {
         cout << "Enter password: ";
         cin >> password;
 
-        ifstream users("loginDataBase.txt");
-        if (!users.is_open()) {
+        ifstream usersFile("loginDataBase.txt");
+        if (!usersFile.is_open()) {
             cout << "Error: Unable to open database file!" << endl;
             exit(0);
             return ""; // Use empty string instead of nullptr for string return type
         }
 
-        string fileUsername, filePassword;
+        string fileUsername, filePassword, line;
         bool loginSuccess = false;
 
-        while (users >> fileUsername >> filePassword) {
+        while (getline(usersFile, line)) {
+            stringstream ss(line);
+            ss >> fileUsername >> filePassword;
             if (fileUsername == username && filePassword == password) {
                 loginSuccess = true;
                 break;
             }
         }
 
-        users.close();
+        usersFile.close();
 
         if (loginSuccess) {
-            cout << "Welcome, " << username << "!" << endl;
+            cout << "\nWelcome, " << username << "!" << endl;
             return username;
         } else {
             cout << "Invalid username or password! Please try again." << endl;
@@ -734,8 +878,8 @@ string login() {
     }
 }
 
-void signup() {
-    string username, password;
+void signup(){
+    string username, password, email, affiliation;
 
     cout << "Enter username: ";
     cin >> username;
@@ -749,20 +893,27 @@ void signup() {
     cout << "Enter password: ";
     cin >> password;
 
+    cout << "Enter email: ";
+    cin >> email;
+
+    cin.ignore();
+    cout << "Enter affiliation (optional - press enter to skip): ";
+    getline(cin, affiliation);
+
     ofstream users("loginDataBase.txt", ios::app);
     if (!users.is_open()) {
         cout << "Error: Unable to open database file!" << endl;
         return;
     }
 
-    users << username << " " << password << "\n";
+    users << username << " " << password << " " << email << " " << affiliation << "\n";
     users.close();
     usernames.insert(username);
 
     cout << "Signup successful!" << endl;
 }
 
-void start_menu() {
+void start_menu(){
     int choice;
     while (true){
         cout << "\nPlease choose one of these options:" << endl;
@@ -794,18 +945,19 @@ void start_menu() {
     }
 }
 
-void main_menu(string const& logged_user) {
+void main_menu(string const& logged_user){
     int choice;
     while (true) {
         cout << "\nPlease choose one of these options:" << endl;
         cout << "1) Schedule Meeting" << endl;
-        cout << "2) Search for a meeting" << endl;
-        cout << "3) Postpone Meeting" << endl;
-        cout << "4) Cancel Meeting" << endl;
-        cout << "5) Open Calendar for user" << endl;
-        cout << "6) Give feedback" << endl;
-        cout << "7) Review previous feedbacks"<< endl;
-        cout << "8) Sign out"<<endl;
+        cout << "2) Register for a Meeting" << endl;
+        cout << "3) Search for a Meeting" << endl;
+        cout << "4) Postpone Meeting" << endl;
+        cout << "5) Cancel Meeting" << endl;
+        cout << "6) Open Calendar for user" << endl;
+        cout << "7) Give feedback" << endl;
+        cout << "8) Review previous feedbacks"<< endl;
+        cout << "9) Sign out"<<endl;
         cout << "Enter a number: ";
         cin >> choice;
 
@@ -821,24 +973,27 @@ void main_menu(string const& logged_user) {
             events_menu(logged_user);
             break; // Continue the loop to let the user choose again
         case 2:
-            search_();
+            register_event(logged_user);
             break;
         case 3:
-            meeting_postponement (logged_user);
+            search_();
             break;
         case 4:
-            meeting_cancellation (logged_user);
+            meeting_postponement(logged_user);
             break;
         case 5:
-            printMultiset(loadEventsForUser(logged_user));
-            break; // Continue the loop to let the user choose again
+            meeting_cancellation(logged_user);
+            break;
         case 6:
-            feedback_menu(logged_user);
+            viewUserEvents(logged_user);
             break;
         case 7:
+            feedback_menu(logged_user);
+            break;
+        case 8:
             review_feedbacks(logged_user);
             break;
-         case 8:
+        case 9:
             start_menu();  // Sign out and return to start menu
             return; // Exit the loop and the main_menu function
         default:
@@ -847,7 +1002,7 @@ void main_menu(string const& logged_user) {
     }
 }
 
-void events_menu(string const& logged_user) {
+void events_menu(string const& logged_user){
     Event* event;
     int choice;
 
@@ -894,23 +1049,49 @@ void schedule_event(string const& logged_user, Event* event) {
     Event* newEvent = event->create_event();
     delete event;  // Delete the temporary object we created in events_menu()
 
-    static set<Event*> eventList;
-    eventList.insert(newEvent);
-
+    allEvents.insert(newEvent);
     newEvent->saveToFile(logged_user);
 }
 
-void setup() {
-    set<User> Users;
-    string userName, password;
-    ifstream users("loginDataBase.txt");
+void loadLoginData(){
+    string username, password, email, affiliation, line;
+    ifstream usersFile("loginDataBase.txt");
 
-    while (users >> userName >> password) {
-        Users.insert(User_Factory(userName, password));
-        usernames.insert(userName);
+    while (getline(usersFile, line)) {
+        stringstream ss(line);
+        ss >> username >> password >> email >> ws; //ws to discard the white space
+        getline(ss, affiliation);
+        Users.insert(User_Factory(username, password, email, affiliation));
+        usernames.insert(username);
     }
-    users.close();
+    usersFile.close();
+}
 
+void loadEventsData(){
+    string type, line;
+
+    ifstream eventsFile("events.txt");
+
+    while(getline(eventsFile, line)) {
+        stringstream ss(line);
+        getline(ss, type, '|');
+        if(type == "Conference"){
+            allEvents.insert(Conference::loadFromFile(line));
+        }
+        else if(type == "Webinar"){
+            allEvents.insert(Webinar::loadFromFile(line));
+        }
+        else if(type == "Workshop"){
+            allEvents.insert(Workshop::loadFromFile(line));
+        }
+    }
+    eventsFile.close();
+}
+
+void setup() {
+
+    loadLoginData();
+    loadEventsData();
     cout << "=========================" << endl;
     cout << "=========WELCOME=========" << endl;
     cout << "=========================" << endl;
@@ -1294,4 +1475,9 @@ void search_by_name(){
     }else{
         printMultiset(matchedEvents);
     }
+}
+int main(){
+    setup();
+
+    return 0;
 }
