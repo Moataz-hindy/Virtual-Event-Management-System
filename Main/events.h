@@ -23,15 +23,21 @@ class Event {
 private:
     string event_name, description, platform, date, time;
     int capacity;
+    set <string> registrars;
+    bool full;
 
 public:
     Event();
-    Event(string n, string desc, string d, string t, string p, int c);
+    Event(string n, string desc, string d, string t, string p, int c, int f);
     virtual ~Event() = default;
 
     virtual void displayDetails() const = 0;
     virtual Event* create_event() = 0;
     virtual void saveToFile(const string& username) = 0;
+    bool isFull();
+    bool isAlreadyRegistered(const string& username);
+    set<string> getRegistrars();
+    void addRegister(const string& username);
 
     string getName() const;
     string getDescription() const;
@@ -49,7 +55,7 @@ private:
     int duration;
 public:
     Conference();
-    Conference(string n, string desc, string d, string t, string p, int c, int dur);
+    Conference(string n, string desc, string d, string t, string p, int c, int f, int dur);
     ~Conference() override = default;
 
     void displayDetails() const override;
@@ -66,7 +72,7 @@ private:
     string host;
 public:
     Webinar();
-    Webinar(string n, string desc, string d, string t, string p, int c, string h);
+    Webinar(string n, string desc, string d, string t, string p, int c, int f, string h);
     ~Webinar() override = default;
 
     void displayDetails() const override;
@@ -83,7 +89,7 @@ private:
     string instructor;
 public:
     Workshop();
-    Workshop(string n, string desc, string d, string t, string p, int c, string i);
+    Workshop(string n, string desc, string d, string t, string p, int c, int f, string i);
     ~Workshop() override = default;
 
     void displayDetails() const override;
@@ -96,10 +102,10 @@ public:
 };
 
 class User {
-    string username, password;
+    string username, password, email, affiliation;
 public:
     User();
-    User(string u, string p);
+    User(string u, string p, string e, string a = "");
     virtual ~User() = default;
 
     void setUsername(string u);
@@ -108,20 +114,16 @@ public:
     void setPassword(string p);
     string getPassword() const;
 
-    bool operator<(const User& other) const;
-};
-
-class Attendee : public User {
-private:
-    string affiliation;
-public:
-    Attendee();
-    Attendee(string u, string p, string a);
-    ~Attendee() override = default;
+    void setEmail(string e);
+    string getEmail() const;
 
     void setAffiliation(string a);
     string getAffiliation() const;
+
+    bool operator<(const User& other) const;
 };
+
+extern set <Event*> allEvents;
 
 class Feedback {
 public:
@@ -207,7 +209,7 @@ void events_menu(string const& logged_user);
 void schedule_event(string const& logged_user, Event* event);
 set<Event*> loadEventsForUser(const string& username);
 template <typename T> void printMultiset(const set<T>& mset);
-User User_Factory(string const& username, string const& password);
+User User_Factory(string const& username, string const& password, string const& email, string const& affiliation);
 void meeting_postponement(const string& username);
 void meeting_cancellation(const string& username);
 void review_feedbacks(const std::string& username);
@@ -216,7 +218,13 @@ void search_by_name();
 void search_by_date();
 void search_by_type();
 void search_();
+void register_event(const string& username);
+static set<Event*> getRegesteredEvents(const string& username);
+void viewUserEvents(const string& logged_user);
+
+
 #endif
+/*
 // events.h
 #ifndef EVENTS_H
 #define EVENTS_H
@@ -436,3 +444,4 @@ void search_by_date();
 void search_by_type();
 void search_();
 #endif
+*/
