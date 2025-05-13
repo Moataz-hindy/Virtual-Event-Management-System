@@ -35,9 +35,10 @@ public:
     virtual Event* create_event() = 0;
     virtual void saveToFile(const string& username) = 0;
     bool isFull();
-    bool isAlreadyRegistered(const string& username);
+    bool isRegistered(const string& username);
     set<string> getRegistrars();
-    void addRegister(const string& username);
+    void addRegistrar(const string& username);
+    void saveRegistrar(const string& username);
 
     string getName() const;
     string getDescription() const;
