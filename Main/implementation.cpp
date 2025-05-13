@@ -4,6 +4,7 @@ set<User> Users; // haven't used yet
 unordered_set<string> usernames;
 set<Event*> allEvents;
 
+
 //////////////////////////   User   //////////////////////////
 User::User(){}
 User::User(string u, string p, string e, string a): username(u), password(p), email(e), affiliation(a){}
@@ -24,14 +25,10 @@ string User::getEmail() const{ return email; }
 bool User::operator<(const User& other) const {
         return username < other.username;
     }
-
-
 ///////////////////////////   Event   /////////////////////////
 Event::Event(){}
 Event::Event(string n, string desc, string p, string d, string t, int c, int f)
     : event_name(std::move(n)), description(desc), platform(p), date(d), time(t), capacity(c), full(f){}
-
-
 
 //Implemtation of getter functions
 string Event::getName() const { return event_name; }
@@ -43,11 +40,12 @@ int Event::getCapacity() const { return capacity; }
 set<string> Event::getRegistrars(){
     return registrars;
 }
-
-void Event::addRegistrar(const string& username){
+bool Event::addRegistrar(const string& username){
+    if (isFull()) return false;
     registrars.insert(username);
     if(registrars.size() >= capacity)
         full = 1;
+    return true;
 }
 void Event::saveRegistrar(const string& username){
     ifstream inFile("events.txt");
@@ -70,6 +68,7 @@ void Event::saveRegistrar(const string& username){
     }
     inFile.close();
     for(const string& registrar : registrars){
+        if (lines[targetLine].back() != '|') lines[targetLine] += '|';
         lines[targetLine] += registrar + "|";
     }
 
@@ -79,22 +78,34 @@ void Event::saveRegistrar(const string& username){
     }
     outFile.close();
 }
-
 bool Event::isFull(){
     return full;
 }
-
 bool Event::operator<(const Event& other) const {
     return (date == other.date) ? (time < other.time) : (date < other.date);
 }
+// Factory Method Implementation: Part of Factory Design Pattern
+Event* Event::eventBuilder(const eventType Type) {
+    if (Type == Conference_) {
+        return Conference::create_event();
+    }
+    else if (Type == Webinar_) {
+        return Webinar::create_event();
+    }
+    else if (Type == Workshop_) {
+        return Workshop::create_event();
+    }
+    else return nullptr;
+}
 ////////////////////////   Conference   ////////////////////////////
 Conference::Conference(){}
-Conference::Conference(string n, string desc, string p, string d, string t, int c, int f, int dur)
-    : Event(n, desc, p, d, t, c, f), duration(dur) {}
+Conference::Conference(string n, string desc, string p, string d, string t, int c, int dur)
+    : Event(n, desc, p, d, t, c, 0), duration(dur) {}
 
 string Conference::getType() const{ return "Conference";}
 int Conference::getDuration() const{ return duration;}
 
+// Static Factory Method Implementation: Part of Factory Design Pattern
 Event* Conference::create_event(){
     string name, desc, platform, date, time;
     int capacity, duration;
@@ -123,7 +134,7 @@ Event* Conference::create_event(){
     cout << "Enter Duration (In days): ";
     cin >> duration;
 
-    Conference* conference = new Conference(name, desc, platform, date, time, capacity, 0, duration);
+    Conference* conference = new Conference(name, desc, platform, date, time, capacity, duration);
     return conference;
 }
 
@@ -142,7 +153,6 @@ void Conference::saveToFile(const string& username){
         cout << "Error opening events file!" << endl;
         return;
     }
-
     file << this->getType() << '|'
         << username << "|"
         << this->getName() << "|"
@@ -151,42 +161,34 @@ void Conference::saveToFile(const string& username){
         << this->getTime() << "|"
         << this->getPlatform() << "|"
         << this->getCapacity() << "|"
-        << this->isFull() << "|"
-        << this->getDuration() << "|" << endl;
+        << this->getDuration() << endl;
 }
 // Conference|Username|eneven name|desc|2090-01-01|23:00|Plat|capacity|duration
 Event* Conference::loadFromFile(const string& line){
 
     stringstream ss(line);
-    string fileUser, name, desc, date, time, platform, capacityStr, fullStr, durationStr, type, registrar;
+    string fileUser, name, desc, date, time, platform, capacityStr, durationStr, type, registrar;
     getline(ss, type, '|');
     getline(ss, fileUser, '|');
-
     getline(ss, name, '|');
     getline(ss, desc, '|');
     getline(ss, date, '|');
     getline(ss, time, '|');
     getline(ss, platform, '|');
     getline(ss, capacityStr, '|');
-    getline(ss, fullStr, '|');
     getline(ss, durationStr, '|');
-
     int capacity = stoi(capacityStr);
     int duration = stoi(durationStr);
-    int full = stoi(fullStr);
-
-    Conference* conference = new Conference(name, desc, platform, date, time, capacity, full, duration);
-
+    Conference* conference = new Conference(name, desc, platform, date, time, capacity, duration);
     while(getline(ss, registrar, '|')){
         conference->addRegistrar(registrar);
     }
-
     return conference;
 }
 /////////////////////////   Webinar   ///////////////////////////
 Webinar::Webinar(){}
-Webinar::Webinar(string n, string desc, string p, string d, string t, int c, int f, string h)
-    : Event(n, desc, p, d, t, c, f), host(h) {}
+Webinar::Webinar(string n, string desc, string p, string d, string t, int c, string h)
+    : Event(n, desc, p, d, t, c, 0), host(h) {}
 
 string Webinar::getType() const{ return "Webinar";}
 string Webinar::getHost() const{ return host;}
@@ -200,6 +202,7 @@ void Webinar::displayDetails() const {
     cout << "Host: " << getHost() << endl;
 }
 
+// Static Factory Method Implementation: Part of Factory Design Pattern
 Event* Webinar::create_event(){
     string name, desc, platform, date, time, host;
     int capacity;
@@ -229,7 +232,7 @@ Event* Webinar::create_event(){
     cout << "Enter Host: ";
     getline(cin, host);
 
-    Webinar* webinar = new Webinar(name, desc, platform, date, time, capacity, 0, host);
+    Webinar* webinar = new Webinar(name, desc, platform, date, time, capacity, host);
     return webinar;
 }
 
@@ -240,7 +243,6 @@ void Webinar::saveToFile(const string& username){
         cout << "Error opening events file!" << endl;
         return;
     }
-
     file << this->getType() << '|'
         << username << "|"
         << this->getName() << "|"
@@ -249,41 +251,33 @@ void Webinar::saveToFile(const string& username){
         << this->getTime() << "|"
         << this->getPlatform() << "|"
         << this->getCapacity() << "|"
-        << this->isFull() << "|"
-        << this->getHost() << "|" << endl;
+        << this->getHost() << endl;
     file.close();
 }
 
 Event* Webinar::loadFromFile(const string& line){
     stringstream ss(line);
-    string fileUser, name, desc, date, time, platform, capacityStr, fullStr, host, type, registrar;
+    string fileUser, name, desc, date, time, platform, capacityStr, host, type, registrar;
     getline(ss, type, '|');
     getline(ss, fileUser, '|');
-
     getline(ss, name, '|');
     getline(ss, desc, '|');
     getline(ss, date, '|');
     getline(ss, time, '|');
     getline(ss, platform, '|');
     getline(ss, capacityStr, '|');
-    getline(ss, fullStr, '|');
     getline(ss, host, '|');
-
     int capacity = stoi(capacityStr);
-    int full = stoi(fullStr);
-
-    Webinar* webinar = new Webinar(name, desc, platform, date, time, capacity, full, host);
-
+    Webinar* webinar = new Webinar(name, desc, platform, date, time, capacity, host);
     while(getline(ss, registrar, '|')){
         webinar->addRegistrar(registrar);
     }
-
     return webinar;
 }
 ////////////////////////////   Workshop   ////////////////////////
 Workshop::Workshop(){}
-Workshop::Workshop(string n, string desc, string p, string d, string t, int c, int f, string i)
-    : Event(n, desc, p, d, t, c, f), instructor(i) {}
+Workshop::Workshop(string n, string desc, string p, string d, string t, int c, string i)
+    : Event(n, desc, p, d, t, c, 0), instructor(i) {}
 
 string Workshop::getType() const{ return "Workshop";}
 string Workshop::getInstructor() const{ return instructor;}
@@ -297,6 +291,7 @@ void Workshop::displayDetails() const {
     cout << "Instructor: " << getInstructor() << endl;
 }
 
+// Static Factory Method Implementation: Part of Factory Design Pattern
 Event* Workshop::create_event(){
     string name, desc, platform, date, time, instructor;
     int capacity;
@@ -326,7 +321,7 @@ Event* Workshop::create_event(){
     cout << "Enter Instructor: ";
     getline(cin, instructor);
 
-    Workshop* workshop = new Workshop(name, desc, platform, date, time, capacity, 0, instructor);
+    Workshop* workshop = new Workshop(name, desc, platform, date, time, capacity, instructor);
     return workshop;
 }
 
@@ -336,7 +331,6 @@ void Workshop::saveToFile(const string& username){
         cout << "Error opening events file!" << endl;
         return;
     }
-
     file << this->getType() << '|'
         << username << "|"
         << this->getName() << "|"
@@ -345,36 +339,27 @@ void Workshop::saveToFile(const string& username){
         << this->getTime() << "|"
         << this->getPlatform() << "|"
         << this->getCapacity() << "|"
-        << this->isFull() << "|"
-        << this->getInstructor() << "|" << endl;
+        << this->getInstructor() << endl;
     file.close();
 }
 
 Event* Workshop::loadFromFile(const string& line){
-
     stringstream ss(line);
-    string fileUser, name, desc, date, time, platform, capacityStr, fullStr, instructor, type, registrar;
+    string fileUser, name, desc, date, time, platform, capacityStr, instructor, type, registrar;
     getline(ss, type, '|');
     getline(ss, fileUser, '|');
-
     getline(ss, name, '|');
     getline(ss, desc, '|');
     getline(ss, date, '|');
     getline(ss, time, '|');
     getline(ss, platform, '|');
     getline(ss, capacityStr, '|');
-    getline(ss, fullStr, '|');
     getline(ss, instructor, '|');
-
     int capacity = stoi(capacityStr);
-    int full = stoi(fullStr);
-
-    Workshop* workshop = new Workshop(name, desc, platform, date, time, capacity, full, instructor);
-
+    Workshop* workshop = new Workshop(name, desc, platform, date, time, capacity, instructor);
     while (getline(ss, registrar, '|')) {
         workshop->addRegistrar(registrar);
     }
-
     return workshop;
 }
 
@@ -389,14 +374,11 @@ void register_event(const string& logged_user){
     string line;
     while(getline(file, line)){
         stringstream ss(line);
-        string type, eventCreator, full;
+        string type, eventCreator;
         getline(ss, type, '|');
         getline(ss, eventCreator, '|');
-        for(int i=0 ; i<7 ; i++) //skip until get "full" attribute
-            getline(ss, full, '|');
 
         if(logged_user == eventCreator) continue;
-        if(full == "1") continue;
 
         if(type == "Conference"){
             events.push_back(Conference::loadFromFile(line));
@@ -445,18 +427,37 @@ void register_event(const string& logged_user){
     }
 
     Event* selectedEvent = events[choice - 1];
-    selectedEvent->addRegistrar(logged_user);
-    selectedEvent->saveRegistrar(logged_user);
-    cout << "\nYou've registered successfully!" << endl;
+    if (!selectedEvent->addRegistrar(logged_user)) {
+        cout << "Sorry, this event is already full!" << endl;
+    } else {
+        selectedEvent->saveRegistrar(logged_user);
+        cout << "\nYou've registered successfully!" << endl;
+    }
 }
 
-set<Event*> getRegesteredEvents(const string& username){
+set<Event*> getRegesteredEvents(const string& username) {
     set<Event*> RegisteredEvents;
-    for(Event* event : allEvents){
-        if(isRegistered(username, event)){
+    ifstream file("events.txt");
+    string line, type, fileUser;
+    while (getline(file, line)) {
+        istringstream iss(line);
+        getline(iss, type, '|'); // Read event type
+        getline(iss, fileUser, '|'); // Read username (creator)
+        Event* event = nullptr;
+        if (type == "Conference") {
+            event = Conference::loadFromFile(line);
+        } else if (type == "Webinar") {
+            event = Webinar::loadFromFile(line);
+        } else if (type == "Workshop") {
+            event = Workshop::loadFromFile(line);
+        }
+        if (event && isRegistered(username, event)) {
             RegisteredEvents.insert(event);
+        } else if (event) {
+            delete event;
         }
     }
+    file.close();
     return RegisteredEvents;
 }
 
@@ -681,9 +682,7 @@ set<Event*> loadEventsForUser(const string& username) {
     return userEvents;
 }
 
-User User_Factory(string const& username, string const& password, string const& email, string const& affiliation) {
-    return User(username, password, email, affiliation);
-}
+
 
 template <typename T> void printMultiset(const set<T>& mset) {
     cout << "Meetings:\n" << "-----------------------------" << endl;
@@ -861,9 +860,7 @@ void main_menu(string const& logged_user){
 }
 
 void events_menu(string const& logged_user){
-    Event* event;
     int choice;
-
     while (true) {
         cout << "\nPlease choose the type of the event:" << endl;
         cout << "1) Conference" << endl;
@@ -872,43 +869,42 @@ void events_menu(string const& logged_user){
         cout << "4) Exit" << endl;
         cout << "Enter a number: ";
         cin >> choice;
-
         if (cin.fail()) {
             cin.clear();
             cin.ignore(numeric_limits<streamsize>::max(), '\n');
             cout << "Invalid input. Please enter a number." << endl;
             continue;
         }
-
-        Event* tempEvent = nullptr;
+        Event* event = nullptr;
         switch (choice) {
         case 1:
-            tempEvent = new Conference();
-            schedule_event(logged_user, tempEvent);
+            // Usage of Factory Design Pattern
+            event = Event::eventBuilder(Conference_);
             break;
         case 2:
-            tempEvent = new Webinar();
-            schedule_event(logged_user, tempEvent);
+            // Usage of Factory Design Pattern
+            event = Event::eventBuilder(Webinar_);
             break;
         case 3:
-            tempEvent = new Workshop();
-            schedule_event(logged_user, tempEvent);
+            // Usage of Factory Design Pattern
+            event = Event::eventBuilder(Workshop_);
             break;
         case 4:
             main_menu(logged_user);
             return;
         default:
             cout << "Invalid choice, please choose 1, 2, 3, or 4." << endl;
+            continue;
+        }
+        if (event) {
+            schedule_event(logged_user, event);
         }
     }
 }
 
 void schedule_event(string const& logged_user, Event* event) {
-    Event* newEvent = event->create_event();
-    delete event;  // Delete the temporary object we created in events_menu()
-
-    allEvents.insert(newEvent);
-    newEvent->saveToFile(logged_user);
+    allEvents.insert(event);
+    event->saveToFile(logged_user);
 }
 
 void loadLoginData(){
@@ -919,7 +915,7 @@ void loadLoginData(){
         stringstream ss(line);
         ss >> username >> password >> email >> ws; //ws to discard the white space
         getline(ss, affiliation);
-        Users.insert(User_Factory(username, password, email, affiliation));
+        Users.insert(User(username, password, email, affiliation));
         usernames.insert(username);
     }
     usersFile.close();
@@ -969,7 +965,7 @@ void meeting_postponement(const string& username) {
 
     ifstream file("events.txt");
     vector<string> updatedLines;
-    string type, fileUser, name, desc, date, time, platform, capacityStr, fullStr, addedAttribute, registrars;
+    string type, fileUser, name, desc, date, time, platform, capacityStr, addedAttribute, registrars;
     int flag = 0;
 
     while (getline(file, line)) {
@@ -982,8 +978,7 @@ void meeting_postponement(const string& username) {
         getline(ss, time, '|');
         getline(ss, platform, '|');
         getline(ss, capacityStr, '|');
-        getline(ss, fullStr, '|');
-        getline(ss, addedAttribute, '|'); // may not be needed depending on event
+        getline(ss, addedAttribute, '|');
         getline(ss, registrars);
 
         if (fileUser == username && name == eventName) {
@@ -1007,7 +1002,7 @@ void meeting_postponement(const string& username) {
         string updatedLine;
         updatedLine = type + "|" + fileUser + "|" + name + "|" + desc + "|" +
                       date + "|" + time + "|" + platform + "|" +
-                      capacityStr + "|" + fullStr + "|" + addedAttribute + "|" + registrars;
+                      capacityStr + "|" + addedAttribute + "|" + registrars;
         updatedLines.push_back(updatedLine);
     }
     file.close();
@@ -1040,7 +1035,7 @@ void meeting_cancellation(const string& username) {
         ifstream file("events.txt");
         if (!file.is_open()) { cout << "Error opening events file!\n"; return; }
         vector<string> updatedLines;
-        string type, fileUser, name, desc, date, time, platform, capacityStr, fullStr, addedAttribute, registrars;;
+        string type, fileUser, name, desc, date, time, platform, capacityStr, addedAttribute, registrars;
         bool found = false;
 
         while (getline(file, line)) {
@@ -1053,7 +1048,6 @@ void meeting_cancellation(const string& username) {
             getline(ss, time, '|');
             getline(ss, platform, '|');
             getline(ss, capacityStr, '|');
-            getline(ss, fullStr, '|');
             getline(ss, addedAttribute, '|');
             getline(ss, registrars);
             if (fileUser == username && name == eventName) {
