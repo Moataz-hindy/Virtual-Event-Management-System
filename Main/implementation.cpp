@@ -521,7 +521,6 @@ void Feedback::display(bool showFutureNotice) const {
             cout << "  - " << pair.first << ": " << pair.second << "/5" << endl;
         }
     }
-    cout << "\nQualitative Feedback:" << endl;
     if (!improvementSuggestion_.empty()) {
         cout << "  Suggestion for Improvement: " << improvementSuggestion_ << endl;
     }
