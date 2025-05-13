@@ -28,7 +28,7 @@ private:
 
 public:
     Event();
-    Event(string n, string desc, string d, string t, string p, int c, int f);
+    Event(string n, string desc, string p, string d, string t, int c, int f);
     virtual ~Event() = default;
 
     virtual void displayDetails() const = 0;
@@ -127,77 +127,48 @@ extern set <Event*> allEvents;
 
 class Feedback {
 public:
-    enum AttendeeExperienceLevel { NOT_SET, BEGINNER, INTERMEDIATE, ADVANCED, EXPERT };
-
     Feedback();
-    Feedback(const std::string& reviewerUsername,
-             const std::string& eventName,
-             const std::string& eventType,
-             const std::string& eventDate );
+    Feedback(const string& reviewerUsername,
+             const string& eventName,
+             const string& eventType,
+             const string& eventDate );
 
-    // Core metrics
-    void setOverallFeeling(const std::string& f);
-    std::string getOverallFeeling() const;
-
-    void setLikelihoodToRecommend(int score);
-    int  getLikelihoodToRecommend() const;
+    // General event rating
+    void setGeneralRating(int rating);
+    int getGeneralRating() const;
 
     // Aspect-based ratings
-    void setDetailedRating(const std::string& aspect, int rating);
-    int  getDetailedRating(const std::string& aspect) const;
-    const std::map<std::string,int>& getAllDetailedRatings() const;
+    void setDetailedRating(const string& aspect, int rating);
+    int  getDetailedRating(const string& aspect) const;
+    const map<string,int>& getAllDetailedRatings() const;
 
     // Qualitative
-    void setHighlight(const std::string& h);
-    std::string getHighlight() const;
-    void setImprovementSuggestion(const std::string& s);
-    std::string getImprovementSuggestion() const;
+    void setImprovementSuggestion(const string& s);
+    string getImprovementSuggestion() const;
 
-    // Tags
-    void addTag(const std::string& tag);
-    const std::vector<std::string>& getTags() const;
-
-    // Reviewer context
-    void setExperienceLevel(AttendeeExperienceLevel lvl);
-    AttendeeExperienceLevel getExperienceLevel() const;
-    void setAttendedAnonymously(bool a);
-    bool didAttendAnonymously() const;
-
-    // AI hint
-
-
-
-// Metadata access
-std::string getReviewerUsername() const;
-std::string getEventName() const;
-std::string getEventType() const;
-std::string getSubmissionTimestamp() const;
-void setEventDate(const std::string& eventDate);
-std::string getEventDate() const;
-
+    // Metadata access
+    string getReviewerUsername() const;
+    string getEventName() const;
+    string getEventType() const;
+    string getSubmissionTimestamp() const;
+    void setEventDate(const string& eventDate);
+    string getEventDate() const;
 
     // I/O
-    void display() const;
-    void collectFeedbackInteractive(const std::vector<std::string>& potentialAspects);
+    void display(bool showFutureNotice = false) const;
+    bool collectFeedbackInteractive(const vector<string>& potentialAspects);
     void saveToFile() const;
     bool isSubmittedBeforeEvent() const;
 
 private:
-    // helpers you call in .cpp must be declared here:
-    static std::string getCurrentTimestamp();
-    std::string getExperienceLevelString() const;
-    std::string getAutoSentimentString() const;
-    static time_t convertTimestampToTime(const std::string& timestamp);
-    // actual data members (with trailing underscores to match your .cpp)
-    std::string overallFeeling_;
-    int         likelihoodToRecommend_;
-    std::map<std::string,int> detailedRatings_;
-    std::string highlight_, improvementSuggestion_;
-    std::vector<std::string> tags_;
-    AttendeeExperienceLevel experienceLevel_;
-    bool anonymous_;
-    std::string eventDate_;
-    std::string reviewerUsername_, eventName_, eventType_, submissionTimestamp_;
+    static string getCurrentTimestamp();
+    string getAutoSentimentString() const;
+    static time_t convertTimestampToTime(const string& timestamp);
+    int generalRating_;
+    map<string,int> detailedRatings_;
+    string improvementSuggestion_;
+    string eventDate_;
+    string reviewerUsername_, eventName_, eventType_, submissionTimestamp_;
 };
 
 void setup();
@@ -212,8 +183,8 @@ template <typename T> void printMultiset(const set<T>& mset);
 User User_Factory(string const& username, string const& password, string const& email, string const& affiliation);
 void meeting_postponement(const string& username);
 void meeting_cancellation(const string& username);
-void review_feedbacks(const std::string& username);
-void feedback_menu(const std::string& logged_user);
+void review_feedbacks(const string& username);
+void feedback_menu(const string& logged_user);
 void search_by_name();
 void search_by_date();
 void search_by_type();
