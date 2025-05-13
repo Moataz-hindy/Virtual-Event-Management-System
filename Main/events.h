@@ -18,7 +18,9 @@
 using namespace std;
 
 extern unordered_set<string> usernames;
-
+enum eventType {
+    Conference_, Workshop_, Webinar_
+};
 class Event {
 private:
     string event_name, description, platform, date, time;
@@ -32,12 +34,13 @@ public:
     virtual ~Event() = default;
 
     virtual void displayDetails() const = 0;
-    virtual Event* create_event() = 0;
+    // Factory Method: Implements the Factory Design Pattern
+    static Event* eventBuilder(eventType Type);
     virtual void saveToFile(const string& username) = 0;
     bool isFull();
     bool isRegistered(const string& username);
     set<string> getRegistrars();
-    void addRegistrar(const string& username);
+    bool addRegistrar(const string& username);
     void saveRegistrar(const string& username);
 
     string getName() const;
@@ -56,11 +59,12 @@ private:
     int duration;
 public:
     Conference();
-    Conference(string n, string desc, string d, string t, string p, int c, int f, int dur);
+    Conference(string n, string desc, string p, string d, string t, int c, int dur);
     ~Conference() override = default;
 
     void displayDetails() const override;
-    Event* create_event() override;
+    // Static Factory Method: Part of Factory Design Pattern
+    static Event* create_event();
     void saveToFile(const string& username) override;
     static Event* loadFromFile(const string& line);
 
@@ -73,11 +77,12 @@ private:
     string host;
 public:
     Webinar();
-    Webinar(string n, string desc, string d, string t, string p, int c, int f, string h);
+    Webinar(string n, string desc, string p, string d, string t, int c, string h);
     ~Webinar() override = default;
 
     void displayDetails() const override;
-    Event* create_event() override;
+    // Static Factory Method: Part of Factory Design Pattern
+    static Event* create_event();
     void saveToFile(const string& username) override;
     static Event* loadFromFile(const string& line);
 
@@ -90,11 +95,12 @@ private:
     string instructor;
 public:
     Workshop();
-    Workshop(string n, string desc, string d, string t, string p, int c, int f, string i);
+    Workshop(string n, string desc, string p, string d, string t, int c, string i);
     ~Workshop() override = default;
 
     void displayDetails() const override;
-    Event* create_event() override;
+    // Static Factory Method: Part of Factory Design Pattern
+    static Event* create_event();
     void saveToFile(const string& username) override;
     static Event* loadFromFile(const string& line);
 
