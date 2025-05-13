@@ -44,11 +44,12 @@ set<string> Event::getRegistrars(){
     return registrars;
 }
 
-void Event::addRegister(const string& username){
+void Event::addRegistrar(const string& username){
     registrars.insert(username);
     if(registrars.size() >= capacity)
-        full = true;
-
+        full = 1;
+}
+void Event::saveRegistrar(const string& username){
     ifstream inFile("events.txt");
     string line, fileEventName, fileEventDate, fileEventTime;
     vector <string> lines;
@@ -151,7 +152,7 @@ void Conference::saveToFile(const string& username){
         << this->getPlatform() << "|"
         << this->getCapacity() << "|"
         << this->isFull() << "|"
-        << this->getDuration() << endl;
+        << this->getDuration() << "|" << endl;
 }
 // Conference|Username|eneven name|desc|2090-01-01|23:00|Plat|capacity|duration
 Event* Conference::loadFromFile(const string& line){
@@ -177,7 +178,7 @@ Event* Conference::loadFromFile(const string& line){
     Conference* conference = new Conference(name, desc, platform, date, time, capacity, full, duration);
 
     while(getline(ss, registrar, '|')){
-        conference->addRegister(registrar);
+        conference->addRegistrar(registrar);
     }
 
     return conference;
@@ -249,7 +250,7 @@ void Webinar::saveToFile(const string& username){
         << this->getPlatform() << "|"
         << this->getCapacity() << "|"
         << this->isFull() << "|"
-        << this->getHost() << endl;
+        << this->getHost() << "|" << endl;
     file.close();
 }
 
@@ -274,7 +275,7 @@ Event* Webinar::loadFromFile(const string& line){
     Webinar* webinar = new Webinar(name, desc, platform, date, time, capacity, full, host);
 
     while(getline(ss, registrar, '|')){
-        webinar->addRegister(registrar);
+        webinar->addRegistrar(registrar);
     }
 
     return webinar;
@@ -345,7 +346,7 @@ void Workshop::saveToFile(const string& username){
         << this->getPlatform() << "|"
         << this->getCapacity() << "|"
         << this->isFull() << "|"
-        << this->getInstructor() << endl;
+        << this->getInstructor() << "|" << endl;
     file.close();
 }
 
@@ -371,49 +372,72 @@ Event* Workshop::loadFromFile(const string& line){
     Workshop* workshop = new Workshop(name, desc, platform, date, time, capacity, full, instructor);
 
     while (getline(ss, registrar, '|')) {
-        workshop->addRegister(registrar);
+        workshop->addRegistrar(registrar);
     }
 
     return workshop;
 }
 
-bool isAlreadyRegistered(const string& username, Event* event){
+bool isRegistered(const string& username, Event* event){
     set<string> eventRegistrars = event->getRegistrars();
     return(eventRegistrars.find(username) != eventRegistrars.end());
 }
 
 void register_event(const string& logged_user){
-    if (allEvents.empty()){
+    vector <Event*> events;
+    ifstream file("events.txt");
+    string line;
+    while(getline(file, line)){
+        stringstream ss(line);
+        string type, eventCreator, full;
+        getline(ss, type, '|');
+        getline(ss, eventCreator, '|');
+        for(int i=0 ; i<7 ; i++) //skip until get "full" attribute
+            getline(ss, full, '|');
+
+        if(logged_user == eventCreator) continue;
+        if(full == "1") continue;
+
+        if(type == "Conference"){
+            events.push_back(Conference::loadFromFile(line));
+        }
+        else if(type == "Webinar"){
+            events.push_back(Webinar::loadFromFile(line));
+        }
+        else if(type == "Workshop"){
+            events.push_back(Workshop::loadFromFile(line));
+        }
+    }
+    if (events.empty()){
         cout << "\nNo events available for registration." << endl;
         return;
     }
 
     cout << "\nAvailable events:" << endl;
-    vector <Event*> events;
-    int index = 1;
-    for(Event* event : allEvents){
-        if(event->isFull()) continue;
+    for(int i=0 ; i<events.size() ; i++){
         cout << "----------------------------" << endl;
-        cout << index << ")\n";
-        event->displayDetails();
+        cout << i+1 << ")\n";
+        events[i]->displayDetails();
         cout << endl;
-        events.push_back(event);
-        index++;
     }
-    cout << "Choose an event to register (1-" << index-1 << "): ";
+    cout << "Choose an event to register (1-" << events.size() << ") (enter 0 to go back): ";
 
     int choice;
     while(true){
         if(!(cin >> choice)){
             cin.clear();
             cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            cout << "Invalid choice, choose (1-4)): ";
+            cout << "Invalid choice, choose (1-" << events.size() << "): ";
             continue;
         }
-        else if(choice < 1 || choice > index-1){
-            cout << "Invalid choice, choose (1-" << index-1 << "): ";
+        else if(choice == 0){
+            cout << "Exited registration" << endl;
+            return;
         }
-        else if(isAlreadyRegistered(logged_user, events[choice - 1])){
+        else if(choice < 1 || choice > events.size()){
+            cout << "Invalid choice, choose (1-" << events.size() << "): ";
+        }
+        else if(isRegistered(logged_user, events[choice - 1])){
             cout << "You've already registered for this event!" << endl;
             cout << "Choose another event: " << endl;
         }
@@ -421,14 +445,15 @@ void register_event(const string& logged_user){
     }
 
     Event* selectedEvent = events[choice - 1];
-    selectedEvent->addRegister(logged_user);
+    selectedEvent->addRegistrar(logged_user);
+    selectedEvent->saveRegistrar(logged_user);
     cout << "\nYou've registered successfully!" << endl;
 }
 
 set<Event*> getRegesteredEvents(const string& username){
     set<Event*> RegisteredEvents;
     for(Event* event : allEvents){
-        if(isAlreadyRegistered(username, event)){
+        if(isRegistered(username, event)){
             RegisteredEvents.insert(event);
         }
     }
@@ -944,7 +969,7 @@ void meeting_postponement(const string& username) {
 
     ifstream file("events.txt");
     vector<string> updatedLines;
-    string fileUser, name, desc, date, time, platform, capacityStr, host, type;
+    string type, fileUser, name, desc, date, time, platform, capacityStr, fullStr, addedAttribute, registrars;
     int flag = 0;
 
     while (getline(file, line)) {
@@ -957,7 +982,9 @@ void meeting_postponement(const string& username) {
         getline(ss, time, '|');
         getline(ss, platform, '|');
         getline(ss, capacityStr, '|');
-        getline(ss, host, '|'); // may not be needed depending on event
+        getline(ss, fullStr, '|');
+        getline(ss, addedAttribute, '|'); // may not be needed depending on event
+        getline(ss, registrars);
 
         if (fileUser == username && name == eventName) {
             cin.ignore();
@@ -980,7 +1007,7 @@ void meeting_postponement(const string& username) {
         string updatedLine;
         updatedLine = type + "|" + fileUser + "|" + name + "|" + desc + "|" +
                       date + "|" + time + "|" + platform + "|" +
-                      capacityStr + "|" + host;
+                      capacityStr + "|" + fullStr + "|" + addedAttribute + "|" + registrars;
         updatedLines.push_back(updatedLine);
     }
     file.close();
@@ -1013,14 +1040,22 @@ void meeting_cancellation(const string& username) {
         ifstream file("events.txt");
         if (!file.is_open()) { cout << "Error opening events file!\n"; return; }
         vector<string> updatedLines;
-        string fileUser, name, desc, date, time, platform, capacityStr, host, type;
+        string type, fileUser, name, desc, date, time, platform, capacityStr, fullStr, addedAttribute, registrars;;
         bool found = false;
 
         while (getline(file, line)) {
             stringstream ss(line);
-            getline(ss, type, '|'); getline(ss, fileUser, '|'); getline(ss, name, '|');
-            getline(ss, desc, '|'); getline(ss, date, '|'); getline(ss, time, '|');
-            getline(ss, platform, '|'); getline(ss, capacityStr, '|'); getline(ss, host, '|');
+            getline(ss, type, '|');
+            getline(ss, fileUser, '|');
+            getline(ss, name, '|');
+            getline(ss, desc, '|');
+            getline(ss, date, '|');
+            getline(ss, time, '|');
+            getline(ss, platform, '|');
+            getline(ss, capacityStr, '|');
+            getline(ss, fullStr, '|');
+            getline(ss, addedAttribute, '|');
+            getline(ss, registrars);
             if (fileUser == username && name == eventName) {
                 found = true;
                 continue;
@@ -1308,6 +1343,7 @@ void search_by_name(){
         printMultiset(matchedEvents);
     }
 }
+
 int main() {
     setup();
     return 0;
