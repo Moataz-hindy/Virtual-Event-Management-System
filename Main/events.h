@@ -155,14 +155,13 @@ public:
     string getEventDate() const;
 
     // I/O
-    void display(bool showFutureNotice = false) const;
+    void display(bool) const;
     bool collectFeedbackInteractive(const vector<string>& potentialAspects);
     void saveToFile() const;
     bool isSubmittedBeforeEvent() const;
 
 private:
     static string getCurrentTimestamp();
-    string getAutoSentimentString() const;
     static time_t convertTimestampToTime(const string& timestamp);
     int generalRating_;
     map<string,int> detailedRatings_;
