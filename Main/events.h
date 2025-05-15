@@ -14,6 +14,7 @@
 #include <iomanip>
 #include <cctype>
 #include <chrono>
+#include <algorithm>
 
 using namespace std;
 
@@ -108,12 +109,23 @@ public:
     string getInstructor() const;
 };
 
-class User {
+
+class Observer{
+    public:
+        virtual void update(const string& eventName, const string& message ) = 0;
+        virtual ~Observer() = default;
+};
+
+class User : public Observer {
+private:
     string username, password, email, affiliation;
 public:
     User();
     User(string u, string p, string e, string a = "");
     virtual ~User() = default;
+
+    virtual void update(const string& eventName, const string& message) override;
+
 
     void setUsername(string u);
     string getUsername() const;
@@ -153,6 +165,10 @@ public:
     void setImprovementSuggestion(const string& s);
     string getImprovementSuggestion() const;
 
+    void attach(Observer* observer);
+    void detach(Observer* observer);
+    void notify();
+
     // Metadata access
     string getReviewerUsername() const;
     string getEventName() const;
@@ -175,6 +191,7 @@ private:
     string improvementSuggestion_;
     string eventDate_;
     string reviewerUsername_, eventName_, eventType_, submissionTimestamp_;
+    vector<Observer*> observers_;
 };
 
 void setup();
