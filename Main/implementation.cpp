@@ -1,5 +1,6 @@
 #include "events.h"
 
+
 set<User> Users; // haven't used yet
 unordered_set<string> usernames;
 set<Event*> allEvents;
@@ -25,6 +26,10 @@ string User::getEmail() const{ return email; }
 bool User::operator<(const User& other) const {
         return username < other.username;
     }
+
+void User::update(const string& eventName, const string& message) {
+    cout << "Notification for " << username << ": " << message << " for event: " << eventName << endl;
+}
 ///////////////////////////   Event   /////////////////////////
 Event::Event(){}
 Event::Event(string n, string desc, string p, string d, string t, int c, int f)
@@ -51,7 +56,7 @@ void Event::saveRegistrar(const string& username){
     ifstream inFile("events.txt");
     string line, fileEventName, fileEventDate, fileEventTime;
     vector <string> lines;
-    int targetLine, index = 0;
+    int targetLine = -1, index = 0;
     while(getline(inFile, line)){
         lines.push_back(line);
         stringstream ss(line);
@@ -63,14 +68,33 @@ void Event::saveRegistrar(const string& username){
         getline(ss, fileEventTime, '|'); //get time
         if(event_name == fileEventName && date == fileEventDate && time == fileEventTime){
             targetLine = index;
+            continue;
         }
         index++;
     }
     inFile.close();
-    for(const string& registrar : registrars){
-        if (lines[targetLine].back() != '|') lines[targetLine] += '|';
-        lines[targetLine] += registrar + "|";
+
+    if (targetLine == -1) return; // Event not found
+
+    // Remove existing registrars from the line
+    stringstream ss(lines[targetLine]);
+    vector<string> fields;
+    string field;
+    // Read up to the last fixed field (for Conference, that's 9 fields)
+    for (int i = 0; i < 9; ++i) {
+        getline(ss, field, '|');
+        fields.push_back(field);
     }
+    // Rebuild the line with only the fixed fields
+    string newLine;
+    for (int i = 0; i < 9; ++i) {
+        newLine += fields[i] + "|";
+    }
+    // Now append all current registrars
+    for(const string& registrar : registrars){
+        newLine += registrar + "|";
+    }
+    lines[targetLine] = newLine;
 
     ofstream outFile("events.txt", ios::trunc);
     for(const string& l : lines){
@@ -497,7 +521,17 @@ Feedback::Feedback(const string& reviewerUsername,
       generalRating_(-1),
       eventDate_(eventDate)
 {}
-
+void Feedback::attach(Observer* observer) {
+    observers_.push_back(observer);
+}
+void Feedback::detach(Observer* observer) {
+    observers_.erase(remove(observers_.begin(), observers_.end(), observer), observers_.end());
+}
+void Feedback::notify() {
+    for (Observer* observer : observers_) {
+        observer->update(eventName_, "New feedback received by " + reviewerUsername_);
+    }
+}
 // --- General Event Rating ---
 void Feedback::setGeneralRating(int rating) {
     if (rating >= 1 && rating <= 5)
@@ -631,6 +665,7 @@ void Feedback::saveToFile() const {
     outfile << "Event: " << eventName_ << endl;
     outfile << "Type: " << eventType_ << endl;
     outfile << "Timestamp: " << submissionTimestamp_ << endl;
+    outfile << "generalRating: " << generalRating_ << endl;
     outfile << "Suggestion: " << improvementSuggestion_ << endl;
     outfile << "Ratings: ";
     bool first = true;
@@ -1072,10 +1107,9 @@ void meeting_cancellation(const string& username) {
 
 void feedback_menu(const std::string& logged_user) {
     // Load all events associated with this user
-    set<Event*> userEvents = loadEventsForUser(logged_user);
+    set<Event*> registeredEvents = getRegesteredEvents(logged_user);
 
-    if (userEvents.empty()) {
-        // If no events found, inform the user and exit
+    if (registeredEvents.empty()) {
         cout << "No events found to give feedback on!" << endl;
         return;
     }
@@ -1085,7 +1119,7 @@ void feedback_menu(const std::string& logged_user) {
     cout << "Select an event to give feedback on:" << endl;
     int index = 1;
     vector<Event*> eventList;
-    for (Event* e : userEvents) {
+    for (Event* e : registeredEvents) {
         cout << index++ << ") " << e->getName() << " on " << e->getDate() << " at " << e->getTime() << endl;
         eventList.push_back(e);
     }
@@ -1097,8 +1131,9 @@ void feedback_menu(const std::string& logged_user) {
     cout << endl;
 
     // Check if user selection is valid
-    if (choice < 1 || choice > eventList.size()) {
+    if (choice < 1 || static_cast<size_t>(choice) > eventList.size()) {
         cout << "Invalid choice!" << endl;
+        for (Event* e : registeredEvents) delete e;
         return;
     }
 
@@ -1107,26 +1142,54 @@ void feedback_menu(const std::string& logged_user) {
 
     // Extract event details
     string eventTitle = selectedEvent->getName();
-    string eventDate = selectedEvent->getDate(); // Get the event date
+    string eventDate = selectedEvent->getDate();
     string eventType = selectedEvent->getType();
 
-    // Define a list of feedback aspects
-    vector<string> aspects = { "Content", "Delivery", "Relevance", "Duration" };
+    // Find the event creator
+    string creator;
+    ifstream file("events.txt");
+    string line, type;
+    while (getline(file, line)) {
+        stringstream ss(line);
+        getline(ss, type, '|');
+        getline(ss, creator, '|');
+        string name;
+        getline(ss, name, '|');
+        if (name == eventTitle) break;
+    }
+    file.close();
 
-    // Create a Feedback object using the logged user and selected event
+    // Create Feedback object
     Feedback fb(logged_user, eventTitle, eventType, eventDate);
+
+    // Attach the event creator as an observer
+    User* creatorUser = nullptr;
+    for (const User& user : Users) {
+        if (user.getUsername() == creator) {
+            creatorUser = const_cast<User*>(&user);
+            fb.attach(creatorUser);
+            break;
+        }
+    }
+
+    // Define a list of feedback aspects
+    vector<string> aspects = {"Content", "Delivery", "Relevance", "Duration"};
+
+    // Collect and process feedback
     if (fb.collectFeedbackInteractive(aspects)) {
-        fb.display(true); // show notice if event is in the future
+        fb.display(true); // Show notice if event is in the future
         fb.saveToFile();
+        fb.notify(); // Notify observers (now includes creatorUser)
     } else {
         cout << "Feedback not collected because the event has not been launched yet." << endl;
     }
-    for (Event* e : userEvents) {
+
+    // Clean up memory
+    for (Event* e : registeredEvents) {
         delete e;
     }
 }
-
-void review_feedbacks(const std::string& username) { // This function lets a user review all feedbacks they have submitted
+void review_feedbacks(const string& username) { // This function lets a user review all feedbacks they have submitted
     string filename = username + "_feedback.txt";
     ifstream infile(filename);
     if (!infile.is_open()) {
