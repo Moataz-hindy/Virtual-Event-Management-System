@@ -5,6 +5,255 @@ set<User> Users; // haven't used yet
 unordered_set<string> usernames;
 set<Event*> allEvents;
 
+//////////////////////////   Menu   //////////////////////////
+void Menu::search_(){
+    int search_choice;
+    cout << "\nPlease choose one of these options:" << endl;
+    cout << "1) Search by Event name" << endl;
+    cout << "2) Search by Event date" << endl;
+    cout << "3) Search by Event type" << endl;
+    cout << "Enter a number: ";
+    cin >> search_choice;
+    switch(search_choice){
+        case 1:
+            Event::search_by_name();
+            break;
+        case 2:
+            Event::search_by_date();
+            break;
+        case 3:
+            Event::search_by_type();
+            break;
+        default:
+            cout << "Invalid choice, please choose 1, 2 or 3." << endl;
+            break;
+    }
+}
+void Menu::feedback_menu(const string& logged_user) {
+    // Load all events associated with this user
+    set<Event*> registeredEvents = User::get_registered_events(logged_user);
+
+    if (registeredEvents.empty()) {
+        cout << "No events found to give feedback on!" << endl;
+        return;
+    }
+
+    // List all available events for the user to choose from
+    cout << endl;
+    cout << "Select an event to give feedback on:" << endl;
+    int index = 1;
+    vector<Event*> eventList;
+    for (Event* e : registeredEvents) {
+        cout << index++ << ") " << e->getName() << " on " << e->getDate() << " at " << e->getTime() << endl;
+        eventList.push_back(e);
+    }
+
+    // Ask user to select an event by number
+    int choice;
+    cout << "Enter event number: ";
+    cin >> choice;
+    cout << endl;
+
+    // Check if user selection is valid
+    if (choice < 1 || static_cast<size_t>(choice) > eventList.size()) {
+        cout << "Invalid choice!" << endl;
+        for (Event* e : registeredEvents) delete e;
+        return;
+    }
+
+    // Get the selected event
+    Event* selectedEvent = eventList[choice - 1];
+
+    // Extract event details
+    string eventTitle = selectedEvent->getName();
+    string eventDate = selectedEvent->getDate();
+    string eventType = selectedEvent->getType();
+
+    // Find the event creator
+    string creator;
+    ifstream file("events.txt");
+    string line, type;
+    while (getline(file, line)) {
+        stringstream ss(line);
+        getline(ss, type, '|');
+        getline(ss, creator, '|');
+        string name;
+        getline(ss, name, '|');
+        if (name == eventTitle) break;
+    }
+    file.close();
+
+    // Create a Feedback object
+    Feedback fb(logged_user, eventTitle, eventType, eventDate);
+
+    // Attach the event creator as an observer
+    User* creatorUser = nullptr;
+    for (const User& user : Users) {
+        if (user.getUsername() == creator) {
+            creatorUser = const_cast<User*>(&user);
+            fb.attach(creatorUser);
+            break;
+        }
+    }
+
+    // Define a list of feedback aspects
+    vector<string> aspects = {"Content", "Delivery", "Relevance", "Duration"};
+
+    // Collect and process feedback
+    if (fb.collectFeedbackInteractive(aspects)) {
+        fb.display(true); // Show notice if an event is in the future
+        fb.saveToFile();
+        fb.notify(); // Notify observers (now includes creatorUser)
+    } else {
+        cout << "Feedback not collected because the event has not been launched yet." << endl;
+    }
+
+    // Clean up memory
+    for (Event* e : registeredEvents) {
+        delete e;
+    }
+}
+void Menu::setup() {
+
+    User::loadLoginData();
+    Event::loadEventsData();
+    cout << "=========================" << endl;
+    cout << "=========WELCOME=========" << endl;
+    cout << "=========================" << endl;
+
+    start_menu();
+}
+void Menu::events_menu(string const& logged_user){
+    int choice;
+    while (true) {
+        cout << "\nPlease choose the type of the event:" << endl;
+        cout << "1) Conference" << endl;
+        cout << "2) Webinar" << endl;
+        cout << "3) Workshop" << endl;
+        cout << "4) Exit" << endl;
+        cout << "Enter a number: ";
+        cin >> choice;
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input. Please enter a number." << endl;
+            continue;
+        }
+        Event* event = nullptr;
+        switch (choice) {
+            case 1:
+                // Usage of Factory Design Pattern
+                event = Event::eventBuilder(Conference_);
+                break;
+            case 2:
+                // Usage of Factory Design Pattern
+                event = Event::eventBuilder(Webinar_);
+                break;
+            case 3:
+                // Usage of Factory Design Pattern
+                event = Event::eventBuilder(Workshop_);
+                break;
+            case 4:
+                main_menu(logged_user);
+                return;
+            default:
+                cout << "Invalid choice, please choose 1, 2, 3, or 4." << endl;
+                continue;
+        }
+        if (event) {
+            Event::schedule_event(logged_user, event);
+        }
+    }
+}
+void Menu::main_menu(string const& logged_user){
+    int choice;
+    while (true) {
+        cout << "\nPlease choose one of these options:" << endl;
+        cout << "1) Schedule Meeting" << endl;
+        cout << "2) Register for a Meeting" << endl;
+        cout << "3) Search for a Meeting" << endl;
+        cout << "4) Postpone Meeting" << endl;
+        cout << "5) Cancel Meeting" << endl;
+        cout << "6) Open Calendar for user" << endl;
+        cout << "7) Give feedback" << endl;
+        cout << "8) Review previous feedbacks"<< endl;
+        cout << "9) Sign out"<<endl;
+        cout << "Enter a number: ";
+        cin >> choice;
+
+        if (cin.fail()) {
+            cin.clear(); // clear the error flag
+            cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard bad input
+            cout << "Invalid input. Please enter a number." << endl;
+            continue;
+        }
+
+        switch (choice) {
+            case 1:
+                events_menu(logged_user);
+                break; // Continue the loop to let the user choose again
+            case 2:
+                Event::register_event(logged_user);
+                break;
+            case 3:
+                search_();
+                break;
+            case 4:
+                Event::meeting_postponement(logged_user);
+                break;
+            case 5:
+                Event::meeting_cancellation(logged_user);
+                break;
+            case 6:
+                User::viewUserEvents(logged_user);
+                break;
+            case 7:
+                feedback_menu(logged_user);
+                break;
+            case 8:
+                Feedback::review_feedbacks(logged_user);
+                break;
+            case 9:
+                start_menu();  // Sign out and return to the start menu
+                return; // Exit the loop and the main_menu function
+            default:
+                cout << "Invalid choice, please choose a number." << endl;
+        }
+    }
+}
+void Menu::start_menu(){
+    int choice;
+    while (true){
+        cout << "\nPlease choose one of these options:" << endl;
+        cout << "1) Login" << endl;
+        cout << "2) Signup" << endl;
+        cout << "3) Exit" << endl;
+        cout << "Enter a number: ";
+        cin >> choice;
+
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input. Please enter a number." << endl;
+            continue;
+        }
+
+        switch (choice) {
+            case 1:
+                main_menu(User::login());
+                return;
+            case 2:
+                User::signup();
+                break;
+            case 3:
+                exit(0);
+            default:
+                cout << "Invalid choice, please choose 1, 2 or 3." << endl;
+        }
+    }
+}
+
+
 
 //////////////////////////   User   //////////////////////////
 User::User(){}
@@ -22,7 +271,7 @@ string User::getAffiliation() const{ return affiliation; }
 void User::setEmail(string e){ email = e; }
 string User::getEmail() const{ return email; }
 
-    // Used to store Users in set in alphabetical order.
+    // Used to store Users in a set in alphabetical order.
 bool User::operator<(const User& other) const {
         return username < other.username;
     }
@@ -30,13 +279,239 @@ bool User::operator<(const User& other) const {
 void User::update(const string& eventName, const string& message) {
     cout << "Notification for " << username << ": " << message << " for event: " << eventName << endl;
 }
+
+void User::loadLoginData(){
+    string username, password, email, affiliation, line;
+    ifstream usersFile("loginDataBase.txt");
+
+    while (getline(usersFile, line)) {
+        stringstream ss(line);
+        ss >> username >> password >> email >> ws; //ws to discard the white space
+        getline(ss, affiliation);
+        Users.insert(User(username, password, email, affiliation));
+        usernames.insert(username);
+    }
+    usersFile.close();
+}
+
+void User::signup(){
+    string username, password, email, affiliation;
+
+    cout << "Enter username: ";
+    cin >> username;
+
+    if (usernames.count(username)) {
+        cout << "Username is taken!" << endl;
+        signup();
+        return;
+    }
+
+    cout << "Enter password: ";
+    cin >> password;
+
+    cout << "Enter email: ";
+    cin >> email;
+
+    cin.ignore();
+    cout << "Enter affiliation (optional - press enter to skip): ";
+    getline(cin, affiliation);
+
+    ofstream users("loginDataBase.txt", ios::app);
+    if (!users.is_open()) {
+        cout << "Error: Unable to open database file!" << endl;
+        return;
+    }
+
+    users << username << " " << password << " " << email << " " << affiliation << "\n";
+    users.close();
+    usernames.insert(username);
+
+    cout << "Signup successful!" << endl;
+}
+
+set<Event*> User::loadEventsForUser(const string& username) {
+    ifstream file("events.txt");
+    set<Event*> userEvents;
+
+    string line, type, fileUser;
+    while (getline(file, line)) {
+        istringstream iss(line);
+        getline(iss, type, '|'); // Read event type
+        getline(iss, fileUser, '|'); // Read username
+        if (fileUser == username) {
+            if (type == "Conference") {
+                userEvents.insert(Conference::loadFromFile(line));
+            } else if (type == "Webinar") {
+                userEvents.insert(Webinar::loadFromFile(line));
+            } else if (type == "Workshop") {
+                userEvents.insert(Workshop::loadFromFile(line));
+            }
+        }
+    }
+    file.close();
+    return userEvents;
+}
+
+string User::login() {
+    string username, password;
+
+    while (true) {
+        cout << "Enter username: ";
+        cin >> username;
+        cout << "Enter password: ";
+        cin >> password;
+
+        ifstream usersFile("loginDataBase.txt");
+        if (!usersFile.is_open()) {
+            cout << "Error: Unable to open database file!" << endl;
+            exit(0);
+            return ""; // Use empty string instead of nullptr for a string return type
+        }
+
+        string fileUsername, filePassword, line;
+        bool loginSuccess = false;
+
+        while (getline(usersFile, line)) {
+            stringstream ss(line);
+            ss >> fileUsername >> filePassword;
+            if (fileUsername == username && filePassword == password) {
+                loginSuccess = true;
+                break;
+            }
+        }
+
+        usersFile.close();
+
+        if (loginSuccess) {
+            cout << "\nWelcome, " << username << "!" << endl;
+            return username;
+        } else {
+            cout << "Invalid username or password! Please try again." << endl;
+        }
+    }
+}
 ///////////////////////////   Event   /////////////////////////
 Event::Event(){}
 Event::Event(string n, string desc, string p, string d, string t, int c, int f)
     : event_name(std::move(n)), description(desc), platform(p), date(d), time(t), capacity(c), full(f){}
 
-//Implemtation of getter functions
+//Implementation of getter functions
 string Event::getName() const { return event_name; }
+void Event::meeting_postponement(const string& username) {
+    string eventName, line;
+    cout << "What is the name of the event you want to postpone (or type 'exit' to cancel): ";
+    getline(cin >> ws, eventName);
+
+    if (eventName == "exit") {
+        cout << "Postponement canceled.\n";
+        return;  // Immediately exit the function
+    }
+
+    ifstream file("events.txt");
+    vector<string> updatedLines;
+    string type, fileUser, name, desc, date, time, platform, capacityStr, addedAttribute, registrars;
+    int flag = 0;
+
+    while (getline(file, line)) {
+        stringstream ss(line);
+        getline(ss, type, '|');
+        getline(ss, fileUser, '|');
+        getline(ss, name, '|');
+        getline(ss, desc, '|');
+        getline(ss, date, '|');
+        getline(ss, time, '|');
+        getline(ss, platform, '|');
+        getline(ss, capacityStr, '|');
+        getline(ss, addedAttribute, '|');
+        getline(ss, registrars);
+
+        if (fileUser == username && name == eventName) {
+            cin.ignore();
+            cout << "New date (YYYY-MM-DD): ";
+            getline(cin, date);
+            while((date[4] != '-') || (date[7] != '-'))  {
+                cout << "Wrong format!" << endl << "Enter date (YYYY-MM-DD): ";
+                getline(cin, date);
+            }
+            cout << "New time (HH:MM): ";
+            getline(cin, time);
+            while(time[2] != ':') {
+            cout << "Wrong format!" << endl << "Enter time (HH:MM): ";
+            getline(cin, time);
+            }
+            flag = 1;
+        }
+
+        // Add the (possibly modified) line back
+        string updatedLine;
+        updatedLine = type + "|" + fileUser + "|" + name + "|" + desc + "|" +
+                      date + "|" + time + "|" + platform + "|" +
+                      capacityStr + "|" + addedAttribute + "|" + registrars;
+        updatedLines.push_back(updatedLine);
+    }
+    file.close();
+
+    // Write updated lines back into the same file
+    ofstream outFile("events.txt", ios::trunc); // overwrite file
+    for (const string& l : updatedLines) {
+        outFile << l << endl;
+    }
+    outFile.close();
+
+    if (flag == 0) {
+        cout << "Event not found.\n";
+        meeting_postponement(username);
+    } else {
+        cout << "Event postponed successfully!\n";
+    }
+}
+void Event::meeting_cancellation(const string& username) {
+    string eventName, line;
+    while (true) {
+        cout << "What is the name of the event you want to cancel (or type 'exit' to go back): ";
+        getline(cin >> ws, eventName); // Use ws to skip leading whitespace
+        if (eventName == "exit") {
+            cout << "Exited cancellation.\n";
+            return;
+        }
+
+        ifstream file("events.txt");
+        if (!file.is_open()) { cout << "Error opening events file!\n"; return; }
+        vector<string> updatedLines;
+        string type, fileUser, name, desc, date, time, platform, capacityStr, addedAttribute, registrars;
+        bool found = false;
+
+        while (getline(file, line)) {
+            stringstream ss(line);
+            getline(ss, type, '|');
+            getline(ss, fileUser, '|');
+            getline(ss, name, '|');
+            getline(ss, desc, '|');
+            getline(ss, date, '|');
+            getline(ss, time, '|');
+            getline(ss, platform, '|');
+            getline(ss, capacityStr, '|');
+            getline(ss, addedAttribute, '|');
+            getline(ss, registrars);
+            if (fileUser == username && name == eventName) {
+                found = true;
+                continue;
+            }
+            updatedLines.push_back(line);
+        }
+        file.close();
+
+        if (found) {
+            ofstream outFile("events.txt", ios::trunc);
+            for (const string& l : updatedLines) outFile << l << "\n";
+            outFile.close();
+            cout << "Event canceled successfully!\n";
+            return;
+        } else {
+            cout << "Event not found or you don't have permission to cancel it. Try again.\n";
+        }
+    }
+}
 string Event::getDescription() const { return description; }
 string Event::getDate() const { return date; }
 string Event::getTime() const { return time; }
@@ -121,6 +596,160 @@ Event* Event::eventBuilder(const eventType Type) {
     }
     else return nullptr;
 }
+
+void User::viewUserEvents(const string& username){
+    set<Event*> ScheduledEvents = User::loadEventsForUser(username);
+    set<Event*> registeredEvents = User::get_registered_events(username);
+
+
+    cout << "\nScheduled ";
+    if(ScheduledEvents.empty())
+        cout << "Meetings:\n-----------------------------\nYou have no scheduled meetings." << endl;
+    else
+        printMultiset(ScheduledEvents);
+
+    cout << "\nRegistered ";
+    if(registeredEvents.empty())
+        cout << "Meetings:\n-----------------------------\nYou have no registered meetings." << endl;
+    else
+        printMultiset(registeredEvents);
+}
+
+void Event::search_by_type(){
+    set<Event*> matchedEvents;
+
+    cout << "\nPlease choose the type of the event:" << endl;
+    cout << "1) Conference" << endl;
+    cout << "2) Webinar" << endl;
+    cout << "3) Workshop" << endl;
+    cout << "Enter a number: ";
+    int type_number;
+    cin >> type_number;
+
+    ifstream events("events.txt");
+    string line, type;
+
+    while(getline(events, line)){
+        stringstream ss(line);
+        getline(ss, type, '|');
+        if(type_number == 1){
+            if (type == "Conference") {
+                matchedEvents.insert(Conference::loadFromFile(line));
+            }
+        }else if(type_number == 2){
+            if (type == "Webinar") {
+                matchedEvents.insert(Webinar::loadFromFile(line));
+            }
+        }else if(type_number == 3){
+            if (type == "Workshop") {
+                matchedEvents.insert(Workshop::loadFromFile(line));
+            }
+        }
+    }
+
+    if(matchedEvents.empty()){
+        cout << "No results found!";
+    }else{
+        printMultiset(matchedEvents);
+    }
+
+}
+
+void Event::search_by_date(){
+    set<Event*> matchedEvents;
+
+    cout << "Enter event date (YYYY-MM-DD): ";
+    string event_date;
+    cin >> event_date;
+
+    ifstream events("events.txt");
+    string line;
+    string type, fileUser, name, desc, date;
+    while(getline(events, line)){
+        stringstream ss(line);
+        getline(ss, type, '|');
+        getline(ss, fileUser, '|');
+        getline(ss, name, '|');
+        getline(ss, desc, '|');
+
+        getline(ss, date, '|');
+        if(event_date == date){
+            if (type == "Conference") {
+                matchedEvents.insert(Conference::loadFromFile(line));
+            } else if (type == "Webinar") {
+                matchedEvents.insert(Webinar::loadFromFile(line));
+            } else if (type == "Workshop") {
+                matchedEvents.insert(Workshop::loadFromFile(line));
+            }
+        }
+    }
+    if(matchedEvents.empty()){
+        cout << "No results found!";
+    }else{
+        printMultiset(matchedEvents);
+    }
+}
+
+void Event::search_by_name(){
+    set<Event*> matchedEvents;
+
+    cout << "Enter event name: ";
+    string event_name;
+    cin >> event_name;
+
+    ifstream events("events.txt");
+    string line;
+    string type, fileUser, name;
+    while(getline(events, line)){
+        stringstream ss(line);
+        getline(ss, type, '|');
+        getline(ss, fileUser, '|');
+
+        getline(ss, name, '|');
+        if(event_name == name){
+            if (type == "Conference") {
+                matchedEvents.insert(Conference::loadFromFile(line));
+            } else if (type == "Webinar") {
+                matchedEvents.insert(Webinar::loadFromFile(line));
+            } else if (type == "Workshop") {
+                matchedEvents.insert(Workshop::loadFromFile(line));
+            }
+        }
+    }
+    if(matchedEvents.empty()){
+        cout << "No results found!";
+    }else{
+        printMultiset(matchedEvents);
+    }
+}
+
+void Event::loadEventsData(){
+    string type, line;
+
+    ifstream eventsFile("events.txt");
+
+    while(getline(eventsFile, line)) {
+        stringstream ss(line);
+        getline(ss, type, '|');
+        if(type == "Conference"){
+            allEvents.insert(Conference::loadFromFile(line));
+        }
+        else if(type == "Webinar"){
+            allEvents.insert(Webinar::loadFromFile(line));
+        }
+        else if(type == "Workshop"){
+            allEvents.insert(Workshop::loadFromFile(line));
+        }
+    }
+    eventsFile.close();
+}
+
+void Event::schedule_event(string const& logged_user, Event* event) {
+    allEvents.insert(event);
+    event->saveToFile(logged_user);
+}
+
+
 ////////////////////////   Conference   ////////////////////////////
 Conference::Conference(){}
 Conference::Conference(string n, string desc, string p, string d, string t, int c, int dur)
@@ -187,7 +816,7 @@ void Conference::saveToFile(const string& username){
         << this->getCapacity() << "|"
         << this->getDuration() << endl;
 }
-// Conference|Username|eneven name|desc|2090-01-01|23:00|Plat|capacity|duration
+
 Event* Conference::loadFromFile(const string& line){
 
     stringstream ss(line);
@@ -387,12 +1016,12 @@ Event* Workshop::loadFromFile(const string& line){
     return workshop;
 }
 
-bool isRegistered(const string& username, Event* event){
+bool Event::isRegistered(const string& username, Event* event){
     set<string> eventRegistrars = event->getRegistrars();
     return(eventRegistrars.find(username) != eventRegistrars.end());
 }
 
-void register_event(const string& logged_user){
+void Event::register_event(const string& logged_user){
     vector <Event*> events;
     ifstream file("events.txt");
     string line;
@@ -443,7 +1072,7 @@ void register_event(const string& logged_user){
         else if(choice < 1 || choice > events.size()){
             cout << "Invalid choice, choose (1-" << events.size() << "): ";
         }
-        else if(isRegistered(logged_user, events[choice - 1])){
+        else if(Event::isRegistered(logged_user, events[choice - 1])){
             cout << "You've already registered for this event!" << endl;
             cout << "Choose another event: " << endl;
         }
@@ -459,7 +1088,7 @@ void register_event(const string& logged_user){
     }
 }
 
-set<Event*> getRegesteredEvents(const string& username) {
+set<Event*> User::get_registered_events(const string& username) {
     set<Event*> RegisteredEvents;
     ifstream file("events.txt");
     string line, type, fileUser;
@@ -475,7 +1104,7 @@ set<Event*> getRegesteredEvents(const string& username) {
         } else if (type == "Workshop") {
             event = Workshop::loadFromFile(line);
         }
-        if (event && isRegistered(username, event)) {
+        if (event && Event::isRegistered(username, event)) {
             RegisteredEvents.insert(event);
         } else if (event) {
             delete event;
@@ -485,23 +1114,7 @@ set<Event*> getRegesteredEvents(const string& username) {
     return RegisteredEvents;
 }
 
-void viewUserEvents(const string& username){
-    set<Event*> ScheduledEvents = loadEventsForUser(username);
-    set<Event*> RegesteredEvents = getRegesteredEvents(username);
 
-
-    cout << "\nScheduled ";
-    if(ScheduledEvents.empty())
-        cout << "Meetings:\n-----------------------------\nYou have no scheduled meetings." << endl;
-    else
-        printMultiset(ScheduledEvents);
-
-    cout << "\nRegistered ";
-    if(RegesteredEvents.empty())
-        cout << "Meetings:\n-----------------------------\nYou have no registered meetings." << endl;
-    else
-        printMultiset(RegesteredEvents);
-}
 
 
 ////////////////////////   Feedback   ////////////////////////////
@@ -608,7 +1221,7 @@ bool Feedback::isSubmittedBeforeEvent() const {
 time_t Feedback::convertTimestampToTime(const string& timestamp) {
     std::tm tm = {}; // Initialize an empty tm structure
     std::istringstream ss(timestamp); // Create a stream from the timestamp string
-    ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S"); // Read the time in specific format
+    ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S"); // Read the time in a specific format
     return mktime(&tm); // Convert the tm structure into a time_t value
 }
 
@@ -692,508 +1305,11 @@ string Feedback::getCurrentTimestamp() {
     return ss.str();
 }
 
-////////////////////////////////////////////////////
-
-set<Event*> loadEventsForUser(const string& username) {
-    ifstream file("events.txt");
-    set<Event*> userEvents;
-
-    string line, type, fileUser;
-    while (getline(file, line)) {
-        istringstream iss(line);
-        getline(iss, type, '|'); // Read event type
-        getline(iss, fileUser, '|'); // Read username
-        if (fileUser == username) {
-            if (type == "Conference") {
-                userEvents.insert(Conference::loadFromFile(line));
-            } else if (type == "Webinar") {
-                userEvents.insert(Webinar::loadFromFile(line));
-            } else if (type == "Workshop") {
-                userEvents.insert(Workshop::loadFromFile(line));
-            }
-        }
-    }
-    file.close();
-    return userEvents;
-}
-
-
-
-template <typename T> void printMultiset(const set<T>& mset) {
-    cout << "Meetings:\n" << "-----------------------------" << endl;
-    for (const T& value : mset) {
-        value->displayDetails();  // Calls the displayDetails() method
-        cout << "-----------------------------" << endl;  // Optional separator
-    }
-    cout << endl;
-    for (Event* e : mset) {
-        delete e;
-    }
-}
-
-string login() {
-    string username, password;
-
-    while (true) {
-        cout << "Enter username: ";
-        cin >> username;
-        cout << "Enter password: ";
-        cin >> password;
-
-        ifstream usersFile("loginDataBase.txt");
-        if (!usersFile.is_open()) {
-            cout << "Error: Unable to open database file!" << endl;
-            exit(0);
-            return ""; // Use empty string instead of nullptr for string return type
-        }
-
-        string fileUsername, filePassword, line;
-        bool loginSuccess = false;
-
-        while (getline(usersFile, line)) {
-            stringstream ss(line);
-            ss >> fileUsername >> filePassword;
-            if (fileUsername == username && filePassword == password) {
-                loginSuccess = true;
-                break;
-            }
-        }
-
-        usersFile.close();
-
-        if (loginSuccess) {
-            cout << "\nWelcome, " << username << "!" << endl;
-            return username;
-        } else {
-            cout << "Invalid username or password! Please try again." << endl;
-        }
-    }
-}
-
-void signup(){
-    string username, password, email, affiliation;
-
-    cout << "Enter username: ";
-    cin >> username;
-
-    if (usernames.count(username)) {
-        cout << "Username is taken!" << endl;
-        signup();
-        return;
-    }
-
-    cout << "Enter password: ";
-    cin >> password;
-
-    cout << "Enter email: ";
-    cin >> email;
-
-    cin.ignore();
-    cout << "Enter affiliation (optional - press enter to skip): ";
-    getline(cin, affiliation);
-
-    ofstream users("loginDataBase.txt", ios::app);
-    if (!users.is_open()) {
-        cout << "Error: Unable to open database file!" << endl;
-        return;
-    }
-
-    users << username << " " << password << " " << email << " " << affiliation << "\n";
-    users.close();
-    usernames.insert(username);
-
-    cout << "Signup successful!" << endl;
-}
-
-void start_menu(){
-    int choice;
-    while (true){
-        cout << "\nPlease choose one of these options:" << endl;
-        cout << "1) Login" << endl;
-        cout << "2) Signup" << endl;
-        cout << "3) Exit" << endl;
-        cout << "Enter a number: ";
-        cin >> choice;
-
-        if (cin.fail()) {
-            cin.clear();
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            cout << "Invalid input. Please enter a number." << endl;
-            continue;
-        }
-
-        switch (choice) {
-            case 1:
-                main_menu(login());
-                return;
-            case 2:
-                signup();
-                break;
-            case 3:
-                exit(0);
-            default:
-                cout << "Invalid choice, please choose 1, 2 or 3." << endl;
-        }
-    }
-}
-
-void main_menu(string const& logged_user){
-    int choice;
-    while (true) {
-        cout << "\nPlease choose one of these options:" << endl;
-        cout << "1) Schedule Meeting" << endl;
-        cout << "2) Register for a Meeting" << endl;
-        cout << "3) Search for a Meeting" << endl;
-        cout << "4) Postpone Meeting" << endl;
-        cout << "5) Cancel Meeting" << endl;
-        cout << "6) Open Calendar for user" << endl;
-        cout << "7) Give feedback" << endl;
-        cout << "8) Review previous feedbacks"<< endl;
-        cout << "9) Sign out"<<endl;
-        cout << "Enter a number: ";
-        cin >> choice;
-
-        if (cin.fail()) {
-            cin.clear(); // clear the error flag
-            cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard bad input
-            cout << "Invalid input. Please enter a number." << endl;
-            continue;
-        }
-
-        switch (choice) {
-        case 1:
-            events_menu(logged_user);
-            break; // Continue the loop to let the user choose again
-        case 2:
-            register_event(logged_user);
-            break;
-        case 3:
-            search_();
-            break;
-        case 4:
-            meeting_postponement(logged_user);
-            break;
-        case 5:
-            meeting_cancellation(logged_user);
-            break;
-        case 6:
-            viewUserEvents(logged_user);
-            break;
-        case 7:
-            feedback_menu(logged_user);
-            break;
-        case 8:
-            review_feedbacks(logged_user);
-            break;
-        case 9:
-            start_menu();  // Sign out and return to start menu
-            return; // Exit the loop and the main_menu function
-        default:
-            cout << "Invalid choice, please choose a number." << endl;
-        }
-    }
-}
-
-void events_menu(string const& logged_user){
-    int choice;
-    while (true) {
-        cout << "\nPlease choose the type of the event:" << endl;
-        cout << "1) Conference" << endl;
-        cout << "2) Webinar" << endl;
-        cout << "3) Workshop" << endl;
-        cout << "4) Exit" << endl;
-        cout << "Enter a number: ";
-        cin >> choice;
-        if (cin.fail()) {
-            cin.clear();
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            cout << "Invalid input. Please enter a number." << endl;
-            continue;
-        }
-        Event* event = nullptr;
-        switch (choice) {
-        case 1:
-            // Usage of Factory Design Pattern
-            event = Event::eventBuilder(Conference_);
-            break;
-        case 2:
-            // Usage of Factory Design Pattern
-            event = Event::eventBuilder(Webinar_);
-            break;
-        case 3:
-            // Usage of Factory Design Pattern
-            event = Event::eventBuilder(Workshop_);
-            break;
-        case 4:
-            main_menu(logged_user);
-            return;
-        default:
-            cout << "Invalid choice, please choose 1, 2, 3, or 4." << endl;
-            continue;
-        }
-        if (event) {
-            schedule_event(logged_user, event);
-        }
-    }
-}
-
-void schedule_event(string const& logged_user, Event* event) {
-    allEvents.insert(event);
-    event->saveToFile(logged_user);
-}
-
-void loadLoginData(){
-    string username, password, email, affiliation, line;
-    ifstream usersFile("loginDataBase.txt");
-
-    while (getline(usersFile, line)) {
-        stringstream ss(line);
-        ss >> username >> password >> email >> ws; //ws to discard the white space
-        getline(ss, affiliation);
-        Users.insert(User(username, password, email, affiliation));
-        usernames.insert(username);
-    }
-    usersFile.close();
-}
-
-void loadEventsData(){
-    string type, line;
-
-    ifstream eventsFile("events.txt");
-
-    while(getline(eventsFile, line)) {
-        stringstream ss(line);
-        getline(ss, type, '|');
-        if(type == "Conference"){
-            allEvents.insert(Conference::loadFromFile(line));
-        }
-        else if(type == "Webinar"){
-            allEvents.insert(Webinar::loadFromFile(line));
-        }
-        else if(type == "Workshop"){
-            allEvents.insert(Workshop::loadFromFile(line));
-        }
-    }
-    eventsFile.close();
-}
-
-void setup() {
-
-    loadLoginData();
-    loadEventsData();
-    cout << "=========================" << endl;
-    cout << "=========WELCOME=========" << endl;
-    cout << "=========================" << endl;
-
-    start_menu();
-}
-
-void meeting_postponement(const string& username) {
-    string eventName, line;
-    cout << "What is the name of the event you want to postpone (or type 'exit' to cancel): ";
-    getline(cin >> ws, eventName);
-
-    if (eventName == "exit") {
-        cout << "Postponement canceled.\n";
-        return;  // Immediately exit the function
-    }
-
-    ifstream file("events.txt");
-    vector<string> updatedLines;
-    string type, fileUser, name, desc, date, time, platform, capacityStr, addedAttribute, registrars;
-    int flag = 0;
-
-    while (getline(file, line)) {
-        stringstream ss(line);
-        getline(ss, type, '|');
-        getline(ss, fileUser, '|');
-        getline(ss, name, '|');
-        getline(ss, desc, '|');
-        getline(ss, date, '|');
-        getline(ss, time, '|');
-        getline(ss, platform, '|');
-        getline(ss, capacityStr, '|');
-        getline(ss, addedAttribute, '|');
-        getline(ss, registrars);
-
-        if (fileUser == username && name == eventName) {
-            cin.ignore();
-            cout << "New date (YYYY-MM-DD): ";
-            getline(cin, date);
-            while((date[4] != '-') || (date[7] != '-'))  {
-                cout << "Wrong format!" << endl << "Enter date (YYYY-MM-DD): ";
-                getline(cin, date);
-            }
-            cout << "New time (HH:MM): ";
-            getline(cin, time);
-            while(time[2] != ':') {
-            cout << "Wrong format!" << endl << "Enter time (HH:MM): ";
-            getline(cin, time);
-            }
-            flag = 1;
-        }
-
-        // Add the (possibly modified) line back
-        string updatedLine;
-        updatedLine = type + "|" + fileUser + "|" + name + "|" + desc + "|" +
-                      date + "|" + time + "|" + platform + "|" +
-                      capacityStr + "|" + addedAttribute + "|" + registrars;
-        updatedLines.push_back(updatedLine);
-    }
-    file.close();
-
-    // Write updated lines back into the same file
-    ofstream outFile("events.txt", ios::trunc); // overwrite file
-    for (const string& l : updatedLines) {
-        outFile << l << endl;
-    }
-    outFile.close();
-
-    if (flag == 0) {
-        cout << "Event not found.\n";
-        meeting_postponement(username);
-    } else {
-        cout << "Event postponed successfully!\n";
-    }
-}
-
-void meeting_cancellation(const string& username) {
-    string eventName, line;
-    while (true) {
-        cout << "What is the name of the event you want to cancel (or type 'exit' to go back): ";
-        getline(cin >> ws, eventName); // Use ws to skip leading whitespace
-        if (eventName == "exit") {
-            cout << "Exited cancellation.\n";
-            return;
-        }
-
-        ifstream file("events.txt");
-        if (!file.is_open()) { cout << "Error opening events file!\n"; return; }
-        vector<string> updatedLines;
-        string type, fileUser, name, desc, date, time, platform, capacityStr, addedAttribute, registrars;
-        bool found = false;
-
-        while (getline(file, line)) {
-            stringstream ss(line);
-            getline(ss, type, '|');
-            getline(ss, fileUser, '|');
-            getline(ss, name, '|');
-            getline(ss, desc, '|');
-            getline(ss, date, '|');
-            getline(ss, time, '|');
-            getline(ss, platform, '|');
-            getline(ss, capacityStr, '|');
-            getline(ss, addedAttribute, '|');
-            getline(ss, registrars);
-            if (fileUser == username && name == eventName) {
-                found = true;
-                continue;
-            }
-            updatedLines.push_back(line);
-        }
-        file.close();
-
-        if (found) {
-            ofstream outFile("events.txt", ios::trunc);
-            for (const string& l : updatedLines) outFile << l << "\n";
-            outFile.close();
-            cout << "Event canceled successfully!\n";
-            return;
-        } else {
-            cout << "Event not found or you don't have permission to cancel it. Try again.\n";
-        }
-    }
-}
-
-void feedback_menu(const std::string& logged_user) {
-    // Load all events associated with this user
-    set<Event*> registeredEvents = getRegesteredEvents(logged_user);
-
-    if (registeredEvents.empty()) {
-        cout << "No events found to give feedback on!" << endl;
-        return;
-    }
-
-    // List all available events for the user to choose from
-    cout << endl;
-    cout << "Select an event to give feedback on:" << endl;
-    int index = 1;
-    vector<Event*> eventList;
-    for (Event* e : registeredEvents) {
-        cout << index++ << ") " << e->getName() << " on " << e->getDate() << " at " << e->getTime() << endl;
-        eventList.push_back(e);
-    }
-
-    // Ask user to select an event by number
-    int choice;
-    cout << "Enter event number: ";
-    cin >> choice;
-    cout << endl;
-
-    // Check if user selection is valid
-    if (choice < 1 || static_cast<size_t>(choice) > eventList.size()) {
-        cout << "Invalid choice!" << endl;
-        for (Event* e : registeredEvents) delete e;
-        return;
-    }
-
-    // Get the selected event
-    Event* selectedEvent = eventList[choice - 1];
-
-    // Extract event details
-    string eventTitle = selectedEvent->getName();
-    string eventDate = selectedEvent->getDate();
-    string eventType = selectedEvent->getType();
-
-    // Find the event creator
-    string creator;
-    ifstream file("events.txt");
-    string line, type;
-    while (getline(file, line)) {
-        stringstream ss(line);
-        getline(ss, type, '|');
-        getline(ss, creator, '|');
-        string name;
-        getline(ss, name, '|');
-        if (name == eventTitle) break;
-    }
-    file.close();
-
-    // Create Feedback object
-    Feedback fb(logged_user, eventTitle, eventType, eventDate);
-
-    // Attach the event creator as an observer
-    User* creatorUser = nullptr;
-    for (const User& user : Users) {
-        if (user.getUsername() == creator) {
-            creatorUser = const_cast<User*>(&user);
-            fb.attach(creatorUser);
-            break;
-        }
-    }
-
-    // Define a list of feedback aspects
-    vector<string> aspects = {"Content", "Delivery", "Relevance", "Duration"};
-
-    // Collect and process feedback
-    if (fb.collectFeedbackInteractive(aspects)) {
-        fb.display(true); // Show notice if event is in the future
-        fb.saveToFile();
-        fb.notify(); // Notify observers (now includes creatorUser)
-    } else {
-        cout << "Feedback not collected because the event has not been launched yet." << endl;
-    }
-
-    // Clean up memory
-    for (Event* e : registeredEvents) {
-        delete e;
-    }
-}
-void review_feedbacks(const string& username) { // This function lets a user review all feedbacks they have submitted
+void Feedback::review_feedbacks(const string& username) { // This function lets a user review all feedbacks they have submitted
     string filename = username + "_feedback.txt";
     ifstream infile(filename);
     if (!infile.is_open()) {
-        // If feedback file not found, inform the user and exit
+        // If a feedback file not found, inform the user and exit
         cout << "\nNo previous feedbacks found for user: " << username << endl;
         return;
     }
@@ -1268,140 +1384,20 @@ void review_feedbacks(const string& username) { // This function lets a user rev
         fb.display(false); // Do not show the 'event not launched' notice
     }
 }
-
-void search_(){
-    int search_choice;
-    cout << "\nPlease choose one of these options:" << endl;
-    cout << "1) Search by Event name" << endl;
-    cout << "2) Search by Event date" << endl;
-    cout << "3) Search by Event type" << endl;
-    cout << "Enter a number: ";
-    cin >> search_choice;
-    switch(search_choice){
-    case 1:
-        search_by_name();
-        break;
-    case 2:
-        search_by_date();
-        break;
-    case 3:
-        search_by_type();
-        break;
-    default:
-        cout << "Invalid choice, please choose 1, 2 or 3." << endl;
-        break;
+////////////////////////////////////////////////////
+template <typename T> void printMultiset(const set<T>& mset) {
+    cout << "Meetings:\n" << "-----------------------------" << endl;
+    for (const T& value : mset) {
+        value->displayDetails();  // Calls the displayDetails() method
+        cout << "-----------------------------" << endl;  // Optional separator
+    }
+    cout << endl;
+    for (Event* e : mset) {
+        delete e;
     }
 }
-
-void search_by_type(){
-    set<Event*> matchedEvents;
-
-    cout << "\nPlease choose the type of the event:" << endl;
-    cout << "1) Conference" << endl;
-    cout << "2) Webinar" << endl;
-    cout << "3) Workshop" << endl;
-    cout << "Enter a number: ";
-    int type_number;
-    cin >> type_number;
-
-    ifstream events("events.txt");
-    string line, type;
-
-    while(getline(events, line)){
-        stringstream ss(line);
-        getline(ss, type, '|');
-        if(type_number == 1){
-            if (type == "Conference") {
-                matchedEvents.insert(Conference::loadFromFile(line));
-            }
-        }else if(type_number == 2){
-            if (type == "Webinar") {
-                matchedEvents.insert(Webinar::loadFromFile(line));
-            }
-        }else if(type_number == 3){
-            if (type == "Workshop") {
-                matchedEvents.insert(Workshop::loadFromFile(line));
-            }
-        }
-    }
-
-    if(matchedEvents.empty()){
-        cout << "No results found!";
-    }else{
-        printMultiset(matchedEvents);
-    }
-
-}
-
-void search_by_date(){
-    set<Event*> matchedEvents;
-
-    cout << "Enter event date (YYYY-MM-DD): ";
-    string event_date;
-    cin >> event_date;
-
-    ifstream events("events.txt");
-    string line;
-    string type, fileUser, name, desc, date;
-    while(getline(events, line)){
-        stringstream ss(line);
-        getline(ss, type, '|');
-        getline(ss, fileUser, '|');
-        getline(ss, name, '|');
-        getline(ss, desc, '|');
-
-        getline(ss, date, '|');
-        if(event_date == date){
-            if (type == "Conference") {
-                matchedEvents.insert(Conference::loadFromFile(line));
-            } else if (type == "Webinar") {
-                matchedEvents.insert(Webinar::loadFromFile(line));
-            } else if (type == "Workshop") {
-                matchedEvents.insert(Workshop::loadFromFile(line));
-            }
-        }
-    }
-    if(matchedEvents.empty()){
-        cout << "No results found!";
-    }else{
-        printMultiset(matchedEvents);
-    }
-}
-
-void search_by_name(){
-    set<Event*> matchedEvents;
-
-    cout << "Enter event name: ";
-    string event_name;
-    cin >> event_name;
-
-    ifstream events("events.txt");
-    string line;
-    string type, fileUser, name;
-    while(getline(events, line)){
-        stringstream ss(line);
-        getline(ss, type, '|');
-        getline(ss, fileUser, '|');
-
-        getline(ss, name, '|');
-        if(event_name == name){
-            if (type == "Conference") {
-                matchedEvents.insert(Conference::loadFromFile(line));
-            } else if (type == "Webinar") {
-                matchedEvents.insert(Webinar::loadFromFile(line));
-            } else if (type == "Workshop") {
-                matchedEvents.insert(Workshop::loadFromFile(line));
-            }
-        }
-    }
-    if(matchedEvents.empty()){
-        cout << "No results found!";
-    }else{
-        printMultiset(matchedEvents);
-    }
-}
-
 int main() {
-    setup();
+    Menu menu;
+    menu.setup();
     return 0;
 }
