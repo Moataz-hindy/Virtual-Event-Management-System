@@ -25,23 +25,37 @@ enum eventType {
     Conference_, Workshop_, Webinar_
 };
 
+enum notificationType {
+    Event_postponement,Event_cancellation, Event_registration, Event_feedback
+};
+
+class User;
+
+class Observer{
+public:
+    virtual void update(const string& eventName, const string& message ) = 0;
+    virtual ~Observer() = default;
+};
+
 // an abstract base class called event
 class Event {
 private:
-    string event_name, description, platform, date, time; // private event attributes with event's details
+    string event_name, description, platform, date, time, creator; // private event attributes with event's details
     int capacity; // stores max attendees
     set <string> registrars; // registered users
     bool full; // the max capacity flag
+    vector<Observer*> observers_;; // an observer pointer to notify observers
+    User* creator_user; // a pointer to the creator user
 
 public:
     Event(); // a default constructor
-    Event(string n, string desc, string p, string d, string t, int c, int f); // a parametrised constructor
+    Event(string n, string desc, string p, string d, string t, string creator, int c, int f); // a parametrised constructor
     virtual ~Event() = default; // a virtual destructor
 
     // pure virtual functions
     virtual void displayDetails() const = 0; // shows the event's details
     // Factory Method: Implements the Factory Design Pattern
-    static Event* eventBuilder(eventType Type);
+    static Event* eventBuilder(const eventType Type, const string&);
     virtual void saveToFile(const string& username) = 0; // saves the event to file
     bool isFull(); // checks if the event has reached max capacity
     static bool isRegistered(const string& username, Event* e); // checks if a username is registered for a specific event
@@ -57,11 +71,17 @@ public:
     static void register_event(const string& username); // a function for the user to register into an event
     static void loadEventsData();
 
+    //Observer Methods
+    void attach(Observer* observer);
+    void detach(Observer* observer);
+    void notify(notificationType);
+
     // getter functions to get the event's details
     string getName() const;
     string getDescription() const;
     string getDate() const;
     string getTime() const;
+    User* getCreator() const;
     string getPlatform() const;
     int getCapacity() const;
     virtual string getType() const = 0; // gets the event type
@@ -70,18 +90,18 @@ public:
 };
 
 // a derived class from base class event called conference
-class Conference : public Event {
+class Conference : public Event{
 private:
     int duration; // a private attribute that checks the duration of a conference
 public:
     Conference(); // a default constructor
-    Conference(string n, string desc, string p, string d, string t, int c, int dur); // a parametrised constructor
+    Conference(string n, string desc, string p, string d, string t, string creator, int c, int dur); // a parametrised constructor
     ~Conference() override = default; // a destructor
 
     // overridden virtual functions
     void displayDetails() const override;
     // Static Factory Method: Part of Factory Design Pattern
-    static Event* create_event();
+    static Event* create_event(string);
     void saveToFile(const string& username) override;
     static Event* loadFromFile(const string& line); // static type load method/function
 
@@ -96,13 +116,13 @@ private:
     string host; // a private attribute that stores the host
 public:
     Webinar(); // a default constructor
-    Webinar(string n, string desc, string p, string d, string t, int c, string h); // a parametrised constructor
+    Webinar(string n, string desc, string p, string d, string t, string creator, int c, string h); // a parametrised constructor
     ~Webinar() override = default; // a destructor
 
     // overridden virtual functions
     void displayDetails() const override;
     // Static Factory Method: Part of Factory Design Pattern
-    static Event* create_event();
+    static Event* create_event(string);
     void saveToFile(const string& username) override;
     static Event* loadFromFile(const string& line); // a static type load method/function
 
@@ -117,25 +137,19 @@ private:
     string instructor; // a private attribute that stores the workshop's instructor
 public:
     Workshop(); // a default constructor
-    Workshop(string n, string desc, string p, string d, string t, int c, string i); // a parametrised constructor
+    Workshop(string n, string desc, string p, string d, string t, string creator, int c, string i); // a parametrised constructor
     ~Workshop() override = default; // a destructor
 
     // overridden virtual functions
     void displayDetails() const override;
     // Static Factory Method: Part of Factory Design Pattern
-    static Event* create_event();
+    static Event* create_event(string);
     void saveToFile(const string& username) override;
     static Event* loadFromFile(const string& line); // static type load method/function
 
     // getter functions
     string getType() const override;
     string getInstructor() const;
-};
-
-class Observer{
-    public:
-        virtual void update(const string& eventName, const string& message ) = 0;
-        virtual ~Observer() = default;
 };
 
 // a class called User
@@ -224,7 +238,7 @@ private:
     string improvementSuggestion_;
     string eventDate_;
     string reviewerUsername_, eventName_, eventType_, submissionTimestamp_;
-    vector<Observer*> observers_;
+    Observer* observer_;
 };
 
 class Menu {
